@@ -1,6 +1,6 @@
 # CPPMan.nvim
 
-![in action](cppman.gif)
+![CPPMan.nvim demo](assets/demo.gif)
 
 A Neovim plugin for the [cppman CLI](https://github.com/aitjcize/cppman), so you can search cplusplus.com and cppreference.com without leaving Neovim.
 
