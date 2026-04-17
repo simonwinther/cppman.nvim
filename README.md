@@ -6,9 +6,9 @@ A NeoVim plugin with a simple interface for the [cppman cli tool](https://github
 
 Plugin inspired by [vim-cppman](https://github.com/gauteh/vim-cppman)
 
-This project is heavily inspired by [madskjeldgaard/cppman.nvim](https://github.com/madskjeldgaard/cppman.nvim).
+This plugin started as a copy of [madskjeldgaard/cppman.nvim](https://github.com/madskjeldgaard/cppman.nvim), with full credit to Mads for the original work.
 
-That original plugin had not been updated for around 9 months, so I made these improvements for my own workflow.
+That repo had not been updated for around 9 months when I picked this up, so I added sizing options and a few other workflow improvements for my own use.
 
 ## Installation
 
@@ -16,7 +16,7 @@ Install using [lazy.nvim](https://github.com/folke/lazy.nvim). Note that [nui.nv
 
 ```lua
 {
-	"madskjeldgaard/cppman.nvim",
+	"simonwinther/cppman.nvim",
 	event = "VeryLazy",
 	dependencies = {
 		"MunifTanjim/nui.nvim",
@@ -37,22 +37,22 @@ Using `event = "VeryLazy"` is enough here. You do not need a separate `keys` ent
 
 Default keymaps:
 
-* `<leader>cp` opens CPPMan for the word under the cursor
-* `<leader>cs` opens the CPPMan search prompt
+* `<leader>cu` opens CPPMan for the word under the cursor
+* `<leader>ck` opens the CPPMan search prompt
 
 You can override the default keymaps in `setup()` if you want:
 
 ```lua
 {
-	"madskjeldgaard/cppman.nvim",
+	"simonwinther/cppman.nvim",
 	event = "VeryLazy",
 	dependencies = {
 		"MunifTanjim/nui.nvim",
 	},
 	opts = {
 		keymaps = {
-			open_under_cursor = "<leader>mp",
-			search = "<leader>ms",
+			open_under_cursor = "<leader>mu",
+			search = "<leader>mk",
 		},
 	},
 }
@@ -66,8 +66,8 @@ require("cppman").setup({
 	popup_width = "80%",
 	popup_height = "60%",
 	keymaps = {
-		open_under_cursor = "<leader>cp",
-		search = "<leader>cs",
+		open_under_cursor = "<leader>cu",
+		search = "<leader>ck",
 	},
 })
 ```

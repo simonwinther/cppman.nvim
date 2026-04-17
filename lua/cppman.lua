@@ -9,8 +9,8 @@ local defaults = {
 	popup_width = "80%",
 	popup_height = "60%",
 	keymaps = {
-		open_under_cursor = "<leader>cp",
-		search = "<leader>cs",
+		open_under_cursor = "<leader>cu",
+		search = "<leader>ck",
 	},
 }
 
