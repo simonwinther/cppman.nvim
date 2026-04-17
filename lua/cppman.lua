@@ -106,14 +106,16 @@ M.input = function()
 			width = config.input_width,
 		},
 		border = {
-			style = "double",
+			style = "rounded",
 			text = {
-				top = "[Search cppman]",
+				top = " keyword search ",
 				top_align = "center",
+				bottom = " enter to search ",
+				bottom_align = "right",
 			},
 		},
 		win_options = {
-			winhighlight = "Normal:Normal,FloatBorder:Normal",
+			winhighlight = "Normal:NormalFloat,FloatBorder:FloatBorder",
 		},
 	}, {
 		prompt = "> ",
