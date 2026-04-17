@@ -6,7 +6,7 @@ A Neovim plugin for the [cppman CLI](https://github.com/aitjcize/cppman), so you
 
 This plugin started as a copy of [madskjeldgaard/cppman.nvim](https://github.com/madskjeldgaard/cppman.nvim), with full credit to Mads for the original work.
 
-This fork adds sizing options and a few workflow improvements.
+I built this version from his repo because it had not been updated for nine months, some parts were a bit outdated, and I wanted it to work well with [lazy.nvim](https://github.com/folke/lazy.nvim), so I decided to remake it based on his plugin.
 
 ## Installation
 
@@ -34,14 +34,11 @@ Use `version = "*"` to follow the latest stable release.
 
 Run `:CPPMan` to open the search prompt, or pass a term directly: `:CPPMan std::array`
 
-Using `event = "VeryLazy"` is enough here. You do not need a separate `keys` entry in your `lazy.nvim` spec unless you want to manage the mappings yourself.
-
-Default keymaps:
-
+The default keymaps are the following:
 * `<leader>cu` opens CPPMan for the word under the cursor
 * `<leader>ck` opens the CPPMan search prompt
 
-Override the default keymaps in `setup()` if needed:
+If you want to override the default keymaps in `opts`, you can do it like this:
 
 ```lua
 {
@@ -59,8 +56,7 @@ Override the default keymaps in `setup()` if needed:
 	},
 }
 ```
-
-Default options:
+And if you want to set up the plugin manually, you can do it like this:
 
 ```lua
 require("cppman").setup({
