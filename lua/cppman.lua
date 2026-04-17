@@ -98,7 +98,6 @@ M.setup = function(opts)
 	vim.keymap.set("n", config.keymaps.search, function()
 		M.input()
 	end, { silent = true, desc = "[k]eyword search" })
-
 end
 
 M.input = function()
