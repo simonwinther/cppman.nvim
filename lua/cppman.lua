@@ -1,4 +1,5 @@
 local Input = require("nui.input")
+local Text = require("nui.text")
 local event = require("nui.utils.autocmd").event
 local Popup = require("nui.popup")
 
@@ -102,15 +103,26 @@ end
 M.input = function()
 	local input = Input({
 		position = "50%",
+		zindex = 60,
 		size = {
 			width = config.input_width,
 		},
 		border = {
+			padding = {
+				left = 2,
+				right = 2,
+			},
 			style = "rounded",
 			text = {
-				top = " keyword search ",
+				top = {
+					{ " keyword ", "FloatBorder" },
+					{ "search ", "Title" },
+				},
 				top_align = "center",
-				bottom = " enter to search ",
+				bottom = {
+					{ " enter ", "SpecialChar" },
+					{ "to search ", "Comment" },
+				},
 				bottom_align = "right",
 			},
 		},
@@ -118,7 +130,7 @@ M.input = function()
 			winhighlight = "Normal:NormalFloat,FloatBorder:FloatBorder",
 		},
 	}, {
-		prompt = "> ",
+		prompt = Text("> ", "Keyword"),
 		default_value = "",
 		on_close = function()
 		end,
