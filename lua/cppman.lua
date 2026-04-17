@@ -19,7 +19,9 @@ local config = vim.tbl_deep_extend("force", {}, defaults)
 
 local function tablelength(T)
 	local count = 0
-	for _ in pairs(T) do count = count + 1 end
+	for _ in pairs(T) do
+		count = count + 1
+	end
 	return count
 end
 
@@ -53,10 +55,10 @@ local function loadNewPage()
 		table.insert(stack, current_page)
 	end
 
-	current_page = vim.fn.expand('<cWORD>')
+	current_page = vim.fn.expand("<cWORD>")
 
 	local wininfo = vim.fn.getwininfo(vim.fn.win_getid())[1]
-	local manwidth = wininfo.width - 4;
+	local manwidth = wininfo.width - 4
 
 	reload(manwidth, current_page)
 end
@@ -69,7 +71,7 @@ local function backToPrevPage()
 	current_page = table.remove(stack)
 
 	local wininfo = vim.fn.getwininfo(vim.fn.win_getid())[1]
-	local manwidth = wininfo.width - 4;
+	local manwidth = wininfo.width - 4
 
 	reload(manwidth, current_page)
 end
@@ -77,7 +79,7 @@ end
 M.setup = function(opts)
 	config = vim.tbl_deep_extend("force", {}, defaults, opts or {})
 
-	vim.api.nvim_create_user_command('CPPMan', function(args)
+	vim.api.nvim_create_user_command("CPPMan", function(args)
 		if args.args ~= nil then
 			if string.len(args.args) > 1 then
 				M.open_cppman_for(args.args)
@@ -87,8 +89,7 @@ M.setup = function(opts)
 		else
 			M.input()
 		end
-	end, { nargs = "?" }
-	)
+	end, { nargs = "?" })
 
 	vim.keymap.set("n", config.keymaps.open_under_cursor, function()
 		M.open_cppman_for(vim.fn.expand("<cword>"))
@@ -132,8 +133,7 @@ M.input = function()
 	}, {
 		prompt = Text("> ", "Keyword"),
 		default_value = "",
-		on_close = function()
-		end,
+		on_close = function() end,
 		on_submit = function(value)
 			M.open_cppman_for(value)
 		end,
@@ -161,7 +161,7 @@ M.open_cppman_for = function(word_to_search)
 			text = {
 				top = "[cppman]",
 				top_align = "center",
-			}
+			},
 		},
 		position = "50%",
 		size = {
@@ -178,12 +178,14 @@ M.open_cppman_for = function(word_to_search)
 		popup:unmount()
 
 		current_page = nil
-		for i=0, #stack do stack[i]=nil end
+		for i = 0, #stack do
+			stack[i] = nil
+		end
 	end)
 
 	-- Set content
 	local wininfo = vim.fn.getwininfo(popup.winid)[1]
-	local manwidth = wininfo.width - 4;
+	local manwidth = wininfo.width - 4
 
 	reload(manwidth, word_to_search)
 
@@ -194,7 +196,6 @@ M.open_cppman_for = function(word_to_search)
 	vim.keymap.set("n", "K", loadNewPage, { silent = true, buffer = true })
 	vim.keymap.set("n", "<C-]>", loadNewPage, { silent = true, buffer = true })
 	vim.keymap.set("n", "<2-LeftMouse>", loadNewPage, { silent = true, buffer = true })
-
 
 	vim.keymap.set("n", "<C-T>", backToPrevPage, { silent = true, buffer = true })
 	vim.keymap.set("n", "<RightMouse>", backToPrevPage, { silent = true, buffer = true })
