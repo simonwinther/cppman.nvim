@@ -91,11 +91,11 @@ M.setup = function(opts)
 
 	vim.keymap.set("n", config.keymaps.open_under_cursor, function()
 		M.open_cppman_for(vim.fn.expand("<cword>"))
-	end, { silent = true, desc = "Open CPPMan for current word" })
+	end, { silent = true, desc = "[u]nder cursor" })
 
 	vim.keymap.set("n", config.keymaps.search, function()
 		M.input()
-	end, { silent = true, desc = "Search CPPMan" })
+	end, { silent = true, desc = "[k]eyword search" })
 
 end
 
