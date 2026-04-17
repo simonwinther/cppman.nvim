@@ -1,0 +1,33 @@
+name: smoke
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        neovim: [stable, nightly]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Neovim
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: ${{ matrix.neovim }}
+
+      - name: Install nui.nvim
+        run: |
+          mkdir -p .tests/deps
+          git clone --depth=1 https://github.com/MunifTanjim/nui.nvim .tests/deps/nui.nvim
+
+      - name: Run smoke test
+        run: nvim --headless -u NONE -c "set rtp+=$PWD,$PWD/.tests/deps/nui.nvim" -l scripts/smoke_test.lua
