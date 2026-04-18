@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.3](https://github.com/simonwinther/cppman.nvim/compare/v0.0.2...v0.0.3) (2026-04-18)
+
+
+### Features
+
+* **cppman:** follow visual selection links with K and &lt;C-]&gt; ([5a1f4bf](https://github.com/simonwinther/cppman.nvim/commit/5a1f4bfe7dba37af34ecd9e73076281ba71f7bf4))
+
 ## [0.0.2](https://github.com/simonwinther/cppman.nvim/compare/v0.0.1...v0.0.2) (2026-04-17)
 
 
