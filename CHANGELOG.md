@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.5](https://github.com/simonwinther/cppman.nvim/compare/v0.0.4...v0.0.5) (2026-04-18)
+
+
+### Features
+
+* **viewer:** add TOC section jumps and forward nav with cursor restore ([d140caf](https://github.com/simonwinther/cppman.nvim/commit/d140caf529909cffb7e7a7f371524eed9ad401b4))
+
 ## [0.0.4](https://github.com/simonwinther/cppman.nvim/compare/v0.0.3...v0.0.4) (2026-04-18)
 
 
