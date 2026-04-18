@@ -24,9 +24,9 @@ can search cplusplus.com and cppreference.com without leaving Neovim.
 
 REQUIREMENTS                                 *cppman-cppman.nvim-requirements*
 
-- cppman <https://github.com/aitjcize/cppman> — for rendering documentation pages
-- `sqlite3` CLI — for querying the keyword index (`apt install sqlite3`, `brew install sqlite`)
-- folke/snacks.nvim <https://github.com/folke/snacks.nvim> — for the fuzzy picker UI
+- cppman <https://github.com/aitjcize/cppman> - for rendering documentation pages
+- `sqlite3` CLI - for querying the keyword index (`apt install sqlite3`, `brew install sqlite`)
+- folke/snacks.nvim <https://github.com/folke/snacks.nvim> - for the fuzzy picker UI
 
 
 INSTALLATION                                 *cppman-cppman.nvim-installation*
@@ -53,8 +53,8 @@ USAGE                                               *cppman-cppman.nvim-usage*
 Run `:CPPMan` to open the keyword search picker, or pass a term directly:
 `:CPPMan std::array`
 
-The default keymaps are: `<leader>cu` — open CPPMan for the word under the
-cursor `<leader>ck` — open the CPPMan search picker
+The default keymaps are: `<leader>cu` - open CPPMan for the word under the
+cursor `<leader>ck` - open the CPPMan search picker
 
 
 CONFIGURATION                               *cppman-cppman.nvim-configuration*
@@ -67,12 +67,16 @@ All options with their defaults:
         open_under_cursor = "<leader>cu",
         search = "<leader>ck",
       },
-      -- Documentation source: "cppreference.com" or "cplusplus.com"
-      source = "cppreference.com",
+      -- Documentation source: "both", "cppreference.com", or "cplusplus.com"
+      source = "both",
       index = {
         -- Explicit path to cppman's index.db (optional override)
         -- If nil, the plugin auto-discovers a valid DB
         db_path = nil,
+      },
+      picker = {
+        width = 0.4,   -- fraction of editor width
+        height = 0.4,  -- fraction of editor height
       },
       viewer = {
         width = 0.8,   -- fraction of editor width
@@ -107,6 +111,14 @@ queries it once per session via `sqlite3` and passes the keyword list to
 `snacks.picker` for fast in-memory fuzzy matching. The `cppman` CLI is only
 used to render documentation pages, not to search.
 
+If `source = "both"`, the plugin merges cppreference and cplusplus results into
+one in-memory picker list. Exact identical matches are deduplicated, and the
+picker shows a small source badge so you can see which site a result will open
+from.
+
+If you prefer one site only, set `source = "cppreference.com"` or `source =
+"cplusplus.com"`.
+
 If the user’s local `~/.cache/cppman/index.db` is empty or corrupt (which can
 happen when `cppman -r` fails due to missing Python dependencies), the plugin
 falls back to the packaged index.db bundled with the cppman Python package.
@@ -115,7 +127,8 @@ falls back to the packaged index.db bundled with the cppman Python package.
 PERFORMANCE                                   *cppman-cppman.nvim-performance*
 
 Search is fast because the plugin loads cppman’s SQLite index once and keeps
-the results in memory for picker matching.
+the results in memory for picker matching. In `source = "both"` mode, the
+merged cross-source list is also built once per session and then reused.
 
 Documentation rendering is optimized for cached pages. If a man page already
 exists in cppman’s `.3.gz` cache, the plugin renders that file directly
@@ -133,12 +146,12 @@ NAVIGATION                                     *cppman-cppman.nvim-navigation*
 In normal mode, the docs viewer uses the same navigation as standalone
 `cppman`:
 
-- **K**, **<C-]>**, **<2-LeftMouse>** — follow the word under the cursor
-- **<C-T>**, **<RightMouse>** — go back to the previous page
+- **K**, **<C-]>**, **<2-LeftMouse>** - follow the word under the cursor
+- **<C-T>**, **<RightMouse>** - go back to the previous page
 
 In visual mode inside the viewer:
 
-- **K**, **<C-]>** — follow the selected text
+- **K**, **<C-]>** - follow the selected text
 
 
 HEALTH CHECK                                 *cppman-cppman.nvim-health-check*
