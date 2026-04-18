@@ -78,7 +78,8 @@ local function find_packaged_db()
 	local res = vim.system(
 		{ "python3", "-c", "import cppman, os; print(os.path.dirname(cppman.__file__))" },
 		{ text = true }
-	):wait()
+	)
+		:wait()
 	if res.code == 0 then
 		local base = vim.trim(res.stdout or "")
 		if base ~= "" then
