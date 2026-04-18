@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.0.4](https://github.com/simonwinther/cppman.nvim/compare/v0.0.3...v0.0.4) (2026-04-18)
+
+
+### Features
+
+* **cppman:** rebuild search and page rendering pipeline ([0ff3829](https://github.com/simonwinther/cppman.nvim/commit/0ff38294c46d13592ad36fcb813fc3c4dabb509c))
+
+
+### Bug Fixes
+
+* **viewer:** pass explicit config to uncached cppman renders ([d10fe52](https://github.com/simonwinther/cppman.nvim/commit/d10fe52a98eae9d0ea5f818096a2efbc33130f2d))
+
 ## [0.0.3](https://github.com/simonwinther/cppman.nvim/compare/v0.0.2...v0.0.3) (2026-04-18)
 
 
