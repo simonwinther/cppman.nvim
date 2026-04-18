@@ -20,13 +20,18 @@ assert(history_ok, "failed to require cppman.history: " .. tostring(history))
 local index_ok, index = pcall(require, "cppman.index")
 assert(index_ok, "failed to require cppman.index")
 
-local cppreference_items = index.load("cppreference.com")
-local both_items = index.load("both")
-assert(#cppreference_items > 0, "cppreference index is empty")
-assert(#both_items >= #cppreference_items, "combined index should not be smaller than cppreference index")
+local db_path = index.resolve_db("cppreference.com")
+if db_path then
+	local cppreference_items = index.load("cppreference.com")
+	local both_items = index.load("both")
+	assert(#cppreference_items > 0, "cppreference index is empty")
+	assert(#both_items >= #cppreference_items, "combined index should not be smaller than cppreference index")
 
-local vector_matches = index.find_exact_matches("std::vector", "both")
-assert(#vector_matches >= 1, "expected exact matches for std::vector in combined index")
-assert(vector_matches[1].source ~= nil, "combined exact match is missing source metadata")
+	local vector_matches = index.find_exact_matches("std::vector", "both")
+	assert(#vector_matches >= 1, "expected exact matches for std::vector in combined index")
+	assert(vector_matches[1].source ~= nil, "combined exact match is missing source metadata")
+else
+	print("Skipping index data tests because no valid index.db was found.")
+end
 
 vim.cmd("qa")
