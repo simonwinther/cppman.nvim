@@ -73,6 +73,40 @@ if db_path then
 		local header_lines = render.render_page(header.page, header.query, 80, header.source)
 		assert(header_lines and #header_lines > 10, "cplusplus header render failed through stored query")
 	end
+
+	local int32 = index.find_exact("int32_t", "cppreference.com")
+	assert(int32 ~= nil, "synthetic alias lookup for int32_t failed")
+	assert(
+		int32.page == "Fixed width integer types (since C++11)",
+		"int32_t should map to fixed width integer types page"
+	)
+	assert(int32.query ~= "int32_t", "int32_t should reuse the page query, not the alias text")
+
+	local std_int32 = index.find_exact("std::int32_t", "cppreference.com")
+	assert(std_int32 ~= nil, "synthetic alias lookup for std::int32_t failed")
+	assert(std_int32.page == int32.page, "std::int32_t should map to the same page as int32_t")
+
+	local prid32 = index.find_exact("PRId32", "cppreference.com")
+	assert(prid32 ~= nil, "synthetic alias lookup for PRId32 failed")
+	assert(prid32.page == int32.page, "PRId32 should map to fixed width integer types page")
+
+	local intptr_min = index.find_exact("INTPTR_MIN", "cppreference.com")
+	assert(intptr_min ~= nil, "synthetic alias lookup for INTPTR_MIN failed")
+	assert(intptr_min.page == int32.page, "INTPTR_MIN should map to fixed width integer types page")
+
+	local prixptr = index.find_exact("PRIxPTR", "cppreference.com")
+	assert(prixptr ~= nil, "synthetic alias lookup for PRIxPTR failed")
+	assert(prixptr.page == int32.page, "PRIxPTR should map to fixed width integer types page")
+
+	local scnxptr = index.find_exact("SCNxPTR", "cppreference.com")
+	assert(scnxptr ~= nil, "synthetic alias lookup for SCNxPTR failed")
+	assert(scnxptr.page == int32.page, "SCNxPTR should map to fixed width integer types page")
+
+	local scnxptr_matches = index.find_exact_matches("SCNXPTR", "cppreference.com")
+	assert(
+		#scnxptr_matches == 1 and scnxptr_matches[1].text == "SCNxPTR",
+		"SCNXPTR should only resolve to the canonical SCNxPTR alias"
+	)
 else
 	print("Skipping index data tests because no valid index.db was found.")
 end

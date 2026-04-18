@@ -65,6 +65,91 @@ local function add_item(items, exact_map, item)
 	add_exact_item(exact_map, item)
 end
 
+local function build_fixed_width_integer_aliases()
+	local aliases = {}
+	local widths = { 8, 16, 32, 64 }
+
+	local function add(alias)
+		aliases[#aliases + 1] = alias
+	end
+
+	local function add_type(base)
+		add(base)
+		add("std::" .. base)
+	end
+
+	for _, width in ipairs(widths) do
+		add_type("int" .. width .. "_t")
+		add_type("int_fast" .. width .. "_t")
+		add_type("int_least" .. width .. "_t")
+		add_type("uint" .. width .. "_t")
+		add_type("uint_fast" .. width .. "_t")
+		add_type("uint_least" .. width .. "_t")
+	end
+
+	for _, name in ipairs({ "intmax_t", "intptr_t", "uintmax_t", "uintptr_t" }) do
+		add_type(name)
+	end
+
+	for _, width in ipairs(widths) do
+		add("INT" .. width .. "_MIN")
+		add("INT_FAST" .. width .. "_MIN")
+		add("INT_LEAST" .. width .. "_MIN")
+		add("INT" .. width .. "_MAX")
+		add("INT_FAST" .. width .. "_MAX")
+		add("INT_LEAST" .. width .. "_MAX")
+		add("UINT" .. width .. "_MAX")
+		add("UINT_FAST" .. width .. "_MAX")
+		add("UINT_LEAST" .. width .. "_MAX")
+		add("INT" .. width .. "_C")
+		add("UINT" .. width .. "_C")
+	end
+
+	for _, name in ipairs({
+		"INTPTR_MIN",
+		"INTPTR_MAX",
+		"INTMAX_MIN",
+		"INTMAX_MAX",
+		"UINTPTR_MAX",
+		"UINTMAX_MAX",
+		"INTMAX_C",
+		"UINTMAX_C",
+	}) do
+		add(name)
+	end
+
+	for _, conv in ipairs({ "d", "i", "u", "o", "x", "X" }) do
+		for _, width in ipairs(widths) do
+			add("PRI" .. conv .. width)
+			add("PRI" .. conv .. "LEAST" .. width)
+			add("PRI" .. conv .. "FAST" .. width)
+		end
+		add("PRI" .. conv .. "MAX")
+		add("PRI" .. conv .. "PTR")
+	end
+
+	for _, conv in ipairs({ "d", "i", "u", "o", "x" }) do
+		for _, width in ipairs(widths) do
+			add("SCN" .. conv .. width)
+			add("SCN" .. conv .. "LEAST" .. width)
+			add("SCN" .. conv .. "FAST" .. width)
+		end
+		add("SCN" .. conv .. "MAX")
+		add("SCN" .. conv .. "PTR")
+	end
+
+	return aliases
+end
+
+-- Some cppman pages group many symbols under one title but do not expose those
+-- symbols as searchable keywords in index.db. Add a small curated alias layer
+-- so common names like int32_t still participate in local search.
+local SYNTHETIC_PAGE_ALIASES = {
+	["cppreference.com"] = {
+		["Fixed width integer types (since C++11)"] = build_fixed_width_integer_aliases(),
+	},
+}
+
 local function choose_preferred_query(page, keywords)
 	if not keywords or #keywords == 0 then
 		return page
@@ -82,6 +167,14 @@ local function choose_preferred_query(page, keywords)
 	end
 
 	return best or page
+end
+
+local function synthetic_aliases_for(source, page)
+	local source_aliases = SYNTHETIC_PAGE_ALIASES[source]
+	if not source_aliases then
+		return nil
+	end
+	return source_aliases[page]
 end
 
 local function copy_exact_items(items)
@@ -251,11 +344,8 @@ local function load_single_source(source)
 		return {}
 	end
 
-	local keyword_rows, keyword_err = run_sqlite(
-		db,
-		string.format('SELECT id, keyword FROM "%s_keywords" ORDER BY id, rowid', source),
-		sep
-	)
+	local keyword_rows, keyword_err =
+		run_sqlite(db, string.format('SELECT id, keyword FROM "%s_keywords" ORDER BY id, rowid', source), sep)
 	if keyword_err then
 		vim.notify("[cppman] index query failed: " .. keyword_err, vim.log.levels.ERROR)
 		return {}
@@ -274,6 +364,7 @@ local function load_single_source(source)
 				title = title,
 				keywords = {},
 				seen_keywords = {},
+				seen_text_lower = { [title:lower()] = true },
 			}
 			pages[#pages + 1] = page
 			pages_by_id[id] = page
@@ -285,6 +376,7 @@ local function load_single_source(source)
 		local page = id and pages_by_id[id] or nil
 		if page and keyword and keyword ~= "" and not page.seen_keywords[keyword] then
 			page.seen_keywords[keyword] = true
+			page.seen_text_lower[keyword:lower()] = true
 			page.keywords[#page.keywords + 1] = keyword
 		end
 	end
@@ -299,6 +391,14 @@ local function load_single_source(source)
 			local keyword = page.keywords[j]
 			if keyword:lower() ~= title_lower then
 				add_item(items, exact_map, make_item(keyword, page.title, keyword, source))
+			end
+		end
+
+		for _, alias in ipairs(synthetic_aliases_for(source, page.title) or {}) do
+			local alias_lower = alias:lower()
+			if not page.seen_text_lower[alias_lower] then
+				page.seen_text_lower[alias_lower] = true
+				add_item(items, exact_map, make_item(alias, page.title, preferred_query, source))
 			end
 		end
 	end

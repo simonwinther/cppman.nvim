@@ -456,7 +456,11 @@ local function follow_word(word, fallback_word)
 		end
 
 		fallback_resolved = render().resolve_page(fallback_word, nil, source)
-		if fallback_resolved and (fallback_resolved.page ~= fallback_word or fallback_resolved.query ~= fallback_word) and try_open_page(fallback_resolved) then
+		if
+			fallback_resolved
+			and (fallback_resolved.page ~= fallback_word or fallback_resolved.query ~= fallback_word)
+			and try_open_page(fallback_resolved)
+		then
 			return
 		end
 	end
