@@ -22,6 +22,7 @@ end
 
 local state = { win = nil, buf = nil }
 local _current_page_name = nil
+local _current_page_query = nil
 local _current_page_source = nil
 local _current_page_label = nil
 local _current_timing_text = nil
@@ -50,7 +51,8 @@ local function snapshot_current_page()
 	local cursor = ok and pos or { 1, 0 }
 	return {
 		type = "page",
-		name = _current_page_name,
+		page = _current_page_name,
+		query = _current_page_query,
 		source = _current_page_source,
 		cursor = cursor,
 	}
@@ -62,6 +64,26 @@ end
 
 local function current_source()
 	return _current_page_source or get_source()
+end
+
+local function make_page_item(item, source)
+	if not item then
+		return nil
+	end
+	local page = item.page or item.name or item.text or item.query
+	if not page or page == "" then
+		return nil
+	end
+	return {
+		text = item.text or page,
+		page = page,
+		query = item.query or page,
+		source = get_source(item.source or source),
+	}
+end
+
+local function raw_lookup_item(name, source)
+	return make_page_item({ text = name, page = name, query = name, source = source }, source)
 end
 
 -- Precomputed lowercase haystack for fast substring existence checks against
@@ -227,17 +249,20 @@ local function format_timing_breakdown(timing)
 	)
 end
 
-local function load_page(name, lines, timing, source, cursor)
+local function load_page(item, lines, timing, cursor)
 	if not is_valid() then
 		return false
 	end
-	source = get_source(source)
+	item = make_page_item(item)
+	if not item then
+		return false
+	end
 
 	if not lines then
 		local width = vim.api.nvim_win_get_width(state.win) - 4
-		lines, timing = render().render_page(name, width, source)
+		lines, timing = render().render_page(item.page, item.query, width, item.source)
 		if not lines then
-			vim.notify("[cppman] failed to render page for: " .. name, vim.log.levels.ERROR)
+			vim.notify("[cppman] failed to render page for: " .. item.page, vim.log.levels.ERROR)
 			return false
 		end
 	end
@@ -261,9 +286,10 @@ local function load_page(name, lines, timing, source, cursor)
 		target = { row, cursor[2] or 0 }
 	end
 	pcall(vim.api.nvim_win_set_cursor, state.win, target)
-	_current_page_name = name
-	_current_page_source = source
-	_current_page_label = extract_page_label(name, lines)
+	_current_page_name = item.page
+	_current_page_query = item.query
+	_current_page_source = item.source
+	_current_page_label = extract_page_label(item.page, lines)
 	_current_sections = sections_mod.build(lines)
 	if timing then
 		local ui_ms = now_ms() - ui_t0
@@ -301,14 +327,17 @@ local function get_cursor_lookup_text()
 	return fallback, nil
 end
 
-local function try_open_page(name, source)
+local function try_open_page(item)
 	if not is_valid() then
 		return false
 	end
-	source = get_source(source)
+	item = make_page_item(item)
+	if not item then
+		return false
+	end
 
 	local width = vim.api.nvim_win_get_width(state.win) - 4
-	local lines, timing = render().render_page(name, width, source)
+	local lines, timing = render().render_page(item.page, item.query, width, item.source)
 	if not lines then
 		return false
 	end
@@ -318,7 +347,7 @@ local function try_open_page(name, source)
 		history().push(snap)
 		history().forward_clear()
 	end
-	return load_page(name, lines, timing, source)
+	return load_page(item, lines, timing)
 end
 
 local function refocus_viewer()
@@ -339,7 +368,7 @@ go_back = function()
 		history().forward_push(snap)
 	end
 	if entry.type == "page" then
-		load_page(entry.name, nil, nil, entry.source, entry.cursor)
+		load_page(entry, nil, nil, entry.cursor)
 		refocus_viewer()
 	else
 		open_picker_for_back(entry.pattern, entry.source)
@@ -356,7 +385,7 @@ go_forward = function()
 		history().push(snap)
 	end
 	if entry.type == "page" then
-		load_page(entry.name, nil, nil, entry.source, entry.cursor)
+		load_page(entry, nil, nil, entry.cursor)
 		refocus_viewer()
 	else
 		open_picker_for_back(entry.pattern, entry.source)
@@ -371,7 +400,7 @@ open_picker_for_back = function(pattern, source)
 		on_select = function(item, used_pattern)
 			history().push({ type = "search", pattern = used_pattern, source = source })
 			history().forward_clear()
-			load_page(item.name, nil, nil, item.source)
+			load_page(item)
 			refocus_viewer()
 		end,
 	})
@@ -390,12 +419,12 @@ local function follow_word(word, fallback_word)
 	end
 
 	local exact = index().find_exact(word, source)
-	if exact and try_open_page(exact.name, exact.source or source) then
+	if exact and try_open_page(exact) then
 		return
 	end
 
 	-- Ask cppman directly first. This keeps canonical man-page names on the fast path.
-	if try_open_page(word, source) then
+	if try_open_page(raw_lookup_item(word, source)) then
 		return
 	end
 
@@ -407,27 +436,27 @@ local function follow_word(word, fallback_word)
 	-- If the visible text is just a partial reference like "literals", ask cppman
 	-- to resolve it to its best matching page before falling back to the picker.
 	local resolved = render().resolve_page(word, nil, source)
-	if resolved and resolved ~= word and try_open_page(resolved, source) then
+	if resolved and (resolved.page ~= word or resolved.query ~= word) and try_open_page(resolved) then
 		return
 	end
 
 	if fallback_word ~= "" then
 		local fallback_resolved = render().resolve_page(fallback_word, word_lower, source)
-		if fallback_resolved and try_open_page(fallback_resolved, source) then
+		if fallback_resolved and try_open_page(fallback_resolved) then
 			return
 		end
 
 		local fallback_exact = index().find_exact(fallback_word, source)
-		if fallback_exact and try_open_page(fallback_exact.name, fallback_exact.source or source) then
+		if fallback_exact and try_open_page(fallback_exact) then
 			return
 		end
 
-		if try_open_page(fallback_word, source) then
+		if try_open_page(raw_lookup_item(fallback_word, source)) then
 			return
 		end
 
 		fallback_resolved = render().resolve_page(fallback_word, nil, source)
-		if fallback_resolved and fallback_resolved ~= fallback_word and try_open_page(fallback_resolved, source) then
+		if fallback_resolved and (fallback_resolved.page ~= fallback_word or fallback_resolved.query ~= fallback_word) and try_open_page(fallback_resolved) then
 			return
 		end
 	end
@@ -444,7 +473,7 @@ local function follow_word(word, fallback_word)
 		on_select = function(item, used_pattern)
 			history().push({ type = "search", pattern = used_pattern, source = source })
 			history().forward_clear()
-			load_page(item.name, nil, nil, item.source)
+			load_page(item)
 			refocus_viewer()
 		end,
 	})
@@ -531,19 +560,29 @@ end
 function M.reset()
 	render().reset()
 	_haystack = { items = nil, blob = "" }
+	_current_page_name = nil
+	_current_page_query = nil
+	_current_page_source = nil
+	_current_page_label = nil
+	_current_timing_text = nil
+	_current_sections = nil
 end
 
 function M.open(opts)
 	opts = opts or {}
-	local name = normalize_lookup_text(opts.name)
+	local item = make_page_item(opts.item, opts.source)
 	local from_search = opts.from_search
-	local source = opts.source
 	local search_source = opts.search_source
 
-	if name == "" then
-		return
+	if not item then
+		local name = normalize_lookup_text(opts.name)
+		if name == "" then
+			return
+		end
+		local source = get_source(opts.source)
+		item = make_page_item(index().find_exact(name, source), source) or raw_lookup_item(name, source)
 	end
-	source = get_source(source)
+	local source = item.source
 	search_source = search_source or source
 
 	if is_valid() then
@@ -555,6 +594,7 @@ function M.open(opts)
 		history().push({ type = "search", pattern = from_search, source = search_source })
 	end
 	_current_page_name = nil
+	_current_page_query = nil
 	_current_page_source = nil
 	_current_page_label = nil
 	_current_timing_text = nil
@@ -601,6 +641,7 @@ function M.open(opts)
 		callback = function()
 			history().reset()
 			_current_page_name = nil
+			_current_page_query = nil
 			_current_page_source = nil
 			_current_page_label = nil
 			_current_timing_text = nil
@@ -610,7 +651,7 @@ function M.open(opts)
 		end,
 	})
 
-	load_page(name, nil, nil, source)
+	load_page(item)
 end
 
 return M

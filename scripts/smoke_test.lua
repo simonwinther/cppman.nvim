@@ -49,17 +49,29 @@ if db_path then
 	local vector_matches = index.find_exact_matches("std::vector", "both")
 	assert(#vector_matches >= 1, "expected exact matches for std::vector in combined index")
 	assert(vector_matches[1].source ~= nil, "combined exact match is missing source metadata")
+	assert(vector_matches[1].page ~= nil, "combined exact match is missing page metadata")
+	assert(vector_matches[1].query ~= nil, "combined exact match is missing query metadata")
 
 	-- Render pipeline: actually exercise cppman + cache.
 	local render = require("cppman.render")
-	local lines, timing = render.render_page("std::vector", 80, "cppreference.com")
+	local vector_item = vector_matches[1]
+	local lines, timing = render.render_page(vector_item.page, vector_item.query, 80, vector_item.source)
 	if lines then
 		assert(#lines > 10, "render produced too few lines: " .. #lines)
 		assert(timing ~= nil, "first render must report timing")
-		local _, t2 = render.render_page("std::vector", 80, "cppreference.com")
+		local _, t2 = render.render_page(vector_item.page, vector_item.query, 80, vector_item.source)
 		assert(t2 == nil, "second render at same width must be a cache hit")
 	else
 		print("Skipping render test (cppman could not render std::vector).")
+	end
+
+	local header = index.find_exact("<cmath> (math.h)", "cplusplus.com")
+	if header then
+		assert(header.page == "<cmath> (math.h)", "cplusplus header page identity changed unexpectedly")
+		assert(header.query ~= nil and header.query ~= "", "cplusplus header is missing query metadata")
+		assert(header.query ~= header.page, "cplusplus header should resolve through an attached query")
+		local header_lines = render.render_page(header.page, header.query, 80, header.source)
+		assert(header_lines and #header_lines > 10, "cplusplus header render failed through stored query")
 	end
 else
 	print("Skipping index data tests because no valid index.db was found.")

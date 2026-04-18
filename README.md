@@ -1,5 +1,9 @@
 # CPPMan.nvim
 
+> [!CAUTION]
+> This README documents the current development version on `main`.
+> For the latest stable release, see the [latest release](../../releases/latest).
+
 <p align="center">
   <img src="assets/demo.gif" alt="CPPMan.nvim demo" width="800">
   <br>

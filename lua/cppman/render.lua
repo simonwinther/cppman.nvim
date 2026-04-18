@@ -1,4 +1,5 @@
--- Render pipeline: turns a cppman page name + width into rendered text lines.
+-- Render pipeline: turns a cppman page identity + lookup query + width into
+-- rendered text lines.
 -- Caches both successful renders and failures so re-renders / English-prose K presses
 -- never re-spawn cppman. Owns no window state — viewer.lua handles UI.
 local M = {}
@@ -97,9 +98,9 @@ local function normalize_page_name(name)
 	return name:gsub("/", "_")
 end
 
-local function get_cached_page_path(name, source)
+local function get_cached_page_path(page, source)
 	source = get_source(source)
-	local filename = normalize_page_name(name) .. ".3.gz"
+	local filename = normalize_page_name(page) .. ".3.gz"
 	local candidates = {
 		plugin_cache_dir .. "/cppman/" .. source .. "/" .. filename,
 		user_cache_home .. "/cppman/" .. source .. "/" .. filename,
@@ -135,12 +136,12 @@ local function get_pager_script()
 	return nil
 end
 
-local function render_cached_page(page_path, width, name)
+local function render_cached_page(page_path, width, page)
 	local pager_script = get_pager_script()
 	if not pager_script then
 		return nil
 	end
-	local res = vim.system({ pager_script, "pipe", page_path, tostring(width), "", name }, { text = true }):wait()
+	local res = vim.system({ pager_script, "pipe", page_path, tostring(width), "", page }, { text = true }):wait()
 	if res.code ~= 0 or not res.stdout or res.stdout == "" then
 		return nil
 	end
@@ -180,12 +181,14 @@ local function strip_disambiguation(lines)
 	return lines
 end
 
--- Render a cppman page. Cached pages use cppman's pager.sh directly when
--- available; uncached pages fall back to the cppman CLI. Caches hits AND misses.
+-- Render a cppman page. Cached pages are keyed by canonical page identity,
+-- while uncached pages are fetched through cppman using the supplied lookup
+-- query. Caches hits AND misses.
 -- Returns (lines|nil, timing|nil). timing is nil on in-memory cache hits.
-function M.render_page(name, width, source)
+function M.render_page(page, query, width, source)
 	source = get_source(source)
-	local key = source .. "\0" .. name .. "\0" .. width
+	query = query or page
+	local key = source .. "\0" .. page .. "\0" .. width
 	local cached = lru_get(page_cache, key)
 	if cached ~= nil then
 		return cached or nil, nil
@@ -195,13 +198,13 @@ function M.render_page(name, width, source)
 	local external_t0 = now_ms()
 
 	local stdout = nil
-	local page_path = get_cached_page_path(name, source)
+	local page_path = get_cached_page_path(page, source)
 	if page_path then
-		stdout = render_cached_page(page_path, width, name)
+		stdout = render_cached_page(page_path, width, page)
 	end
 
 	if not stdout then
-		local res = run_cppman(source, cppman_args({ "--force-columns", tostring(width), name }), "1\n")
+		local res = run_cppman(source, cppman_args({ "--force-columns", tostring(width), query }), "1\n")
 		if res.code ~= 0 or not res.stdout or res.stdout == "" then
 			lru_set(page_cache, key, false)
 			return nil, {
@@ -256,32 +259,43 @@ function M.resolve_page(name, preferred, source)
 	end
 
 	local preferred_lower = preferred and preferred:lower() or nil
-	local page = nil
+	local item = nil
 
 	for _, line in ipairs(vim.split(res.stdout or "", "\n", { plain = true })) do
-		line = vim.trim(line)
-		if line ~= "" and line:find("Source set to", 1, true) ~= 1 then
-			local alias, canonical = line:match("^(.-) %- (.+)$")
-			local render_name = vim.trim(alias or canonical or line)
-			if render_name ~= "" then
-				if not page then
-					page = render_name
+		local trimmed = vim.trim(line)
+		if trimmed ~= "" and trimmed:find("Source set to", 1, true) ~= 1 then
+			local query, page = line:match("^(.-) %- (.+)$")
+			query = query or line
+			page = page or line
+			if query ~= "" and page ~= "" then
+				local candidate = {
+					text = page,
+					page = page,
+					query = query,
+					source = source,
+				}
+				if not item then
+					item = candidate
 				end
-				if preferred_lower and render_name:lower():find(preferred_lower, 1, true) then
-					page = render_name
-					break
+				if preferred_lower then
+					local query_lower = query:lower()
+					local page_lower = page:lower()
+					if query_lower:find(preferred_lower, 1, true) or page_lower:find(preferred_lower, 1, true) then
+						item = candidate
+						break
+					end
 				end
 			end
 		end
 	end
 
-	if not page or page == "" then
+	if not item then
 		lru_set(resolve_cache, key, false)
 		return nil
 	end
 
-	lru_set(resolve_cache, key, page)
-	return page
+	lru_set(resolve_cache, key, item)
+	return item
 end
 
 function M.reset()

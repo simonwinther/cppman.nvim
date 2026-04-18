@@ -50,6 +50,40 @@ local function add_exact_item(map, item)
 	end
 end
 
+local function make_item(text, page, query, source)
+	return {
+		text = text,
+		text_lower = text:lower(),
+		page = page,
+		query = query,
+		source = source,
+	}
+end
+
+local function add_item(items, exact_map, item)
+	items[#items + 1] = item
+	add_exact_item(exact_map, item)
+end
+
+local function choose_preferred_query(page, keywords)
+	if not keywords or #keywords == 0 then
+		return page
+	end
+
+	local best = nil
+	for i = 1, #keywords do
+		local keyword = keywords[i]
+		if keyword == page then
+			return keyword
+		end
+		if not best or #keyword < #best or (#keyword == #best and keyword < best) then
+			best = keyword
+		end
+	end
+
+	return best or page
+end
+
 local function copy_exact_items(items)
 	if not items then
 		return {}
@@ -62,8 +96,15 @@ local function copy_exact_items(items)
 end
 
 -- Spawn sqlite3 directly without a shell. Returns (lines, err).
-local function run_sqlite(db_path, query)
-	local res = vim.system({ "sqlite3", db_path, query }, { text = true }):wait()
+local function run_sqlite(db_path, query, separator)
+	local args = { "sqlite3" }
+	if separator then
+		args[#args + 1] = "-separator"
+		args[#args + 1] = separator
+	end
+	args[#args + 1] = db_path
+	args[#args + 1] = query
+	local res = vim.system(args, { text = true }):wait()
 	if res.code ~= 0 then
 		return nil, (res.stderr ~= "" and res.stderr) or "sqlite3 exited " .. res.code
 	end
@@ -203,51 +244,61 @@ local function load_single_source(source)
 		return {}
 	end
 
-	local rows, err = run_sqlite(db, string.format('SELECT title FROM "%s"', source))
-	if err then
-		vim.notify("[cppman] index query failed: " .. err, vim.log.levels.ERROR)
+	local sep = "\t"
+	local page_rows, page_err = run_sqlite(db, string.format('SELECT id, title FROM "%s" ORDER BY id', source), sep)
+	if page_err then
+		vim.notify("[cppman] index query failed: " .. page_err, vim.log.levels.ERROR)
+		return {}
+	end
+
+	local keyword_rows, keyword_err = run_sqlite(
+		db,
+		string.format('SELECT id, keyword FROM "%s_keywords" ORDER BY id, rowid', source),
+		sep
+	)
+	if keyword_err then
+		vim.notify("[cppman] index query failed: " .. keyword_err, vim.log.levels.ERROR)
 		return {}
 	end
 
 	local items = {}
-	local seen = {}
 	local exact_map = {}
+	local pages = {}
+	local pages_by_id = {}
 
-	for i = 1, #(rows or {}) do
-		local title = vim.trim(rows[i])
-		if title ~= "" and not seen[title] then
-			seen[title] = true
-			local lower = title:lower()
-			local item = { text = title, text_lower = lower, name = title, source = source }
-			items[#items + 1] = item
-			add_exact_item(exact_map, item)
+	for i = 1, #(page_rows or {}) do
+		local id, title = page_rows[i]:match("^(.-)" .. sep .. "(.+)$")
+		if id and title and title ~= "" then
+			local page = {
+				id = id,
+				title = title,
+				keywords = {},
+				seen_keywords = {},
+			}
+			pages[#pages + 1] = page
+			pages_by_id[id] = page
 		end
 	end
 
-	-- Keyword aliases (alternate search terms linked to titles). CHAR(1) (ASCII SOH)
-	-- is safe as a column separator — C++ names never contain control chars.
-	local sep = string.char(1)
-	local kw_rows = run_sqlite(
-		db,
-		string.format(
-			'SELECT k.keyword || CHAR(1) || m.title FROM "%s_keywords" k JOIN "%s" m ON k.id = m.id',
-			source,
-			source
-		)
-	)
-	if kw_rows then
-		for i = 1, #kw_rows do
-			local keyword, title = kw_rows[i]:match("^(.-)" .. sep .. "(.+)$")
-			if keyword and title then
-				keyword = vim.trim(keyword)
-				title = vim.trim(title)
-				if keyword ~= "" and not seen[keyword] then
-					seen[keyword] = true
-					local lower = keyword:lower()
-					local item = { text = keyword, text_lower = lower, name = title, source = source }
-					items[#items + 1] = item
-					add_exact_item(exact_map, item)
-				end
+	for i = 1, #(keyword_rows or {}) do
+		local id, keyword = keyword_rows[i]:match("^(.-)" .. sep .. "(.*)$")
+		local page = id and pages_by_id[id] or nil
+		if page and keyword and keyword ~= "" and not page.seen_keywords[keyword] then
+			page.seen_keywords[keyword] = true
+			page.keywords[#page.keywords + 1] = keyword
+		end
+	end
+
+	for i = 1, #pages do
+		local page = pages[i]
+		local preferred_query = choose_preferred_query(page.title, page.keywords)
+		add_item(items, exact_map, make_item(page.title, page.title, preferred_query, source))
+
+		local title_lower = page.title:lower()
+		for j = 1, #page.keywords do
+			local keyword = page.keywords[j]
+			if keyword:lower() ~= title_lower then
+				add_item(items, exact_map, make_item(keyword, page.title, keyword, source))
 			end
 		end
 	end
@@ -272,13 +323,14 @@ function M.load(source)
 		local seen = {}
 		for _, source_name in ipairs(M.get_sources(source)) do
 			for _, item in ipairs(load_single_source(source_name)) do
-				local dedupe_key = item.text_lower .. "\0" .. item.name:lower()
+				local dedupe_key = item.text_lower .. "\0" .. item.page:lower()
 				if not seen[dedupe_key] then
 					seen[dedupe_key] = true
 					local merged = {
 						text = item.text,
 						text_lower = item.text_lower,
-						name = item.name,
+						page = item.page,
+						query = item.query,
 						source = item.source,
 					}
 					items[#items + 1] = merged

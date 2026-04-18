@@ -34,9 +34,8 @@ function M.search(opts)
 	picker.open(vim.tbl_extend("force", opts or {}, {
 		on_select = function(item, used_pattern)
 			viewer.open({
-				name = item.name,
+				item = item,
 				from_search = used_pattern,
-				source = item.source,
 				search_source = source,
 			})
 		end,
@@ -55,9 +54,9 @@ function M.open_for(word)
 	local viewer = require("cppman.viewer")
 	local source = config.options.source
 
-	local matches = index.find_exact_matches(word, source)
-	if #matches == 1 then
-		viewer.open({ name = matches[1].name, source = matches[1].source })
+	local match = index.find_exact(word, source)
+	if match then
+		viewer.open({ item = match })
 	else
 		M.search({ search = word, source = source })
 	end
