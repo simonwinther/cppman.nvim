@@ -1,7 +1,7 @@
 # CPPMan.nvim
 
 <p align="center">
-  <img src="assets/demo.gif" alt="CPPMan.nvim demo" width="500">
+  <img src="assets/demo.gif" alt="CPPMan.nvim demo" width="800">
   <br>
   <em>(Demo recorded in version v0.0.4)</em>
 </p>
