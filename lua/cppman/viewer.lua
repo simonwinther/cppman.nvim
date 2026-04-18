@@ -94,14 +94,11 @@ local function get_pager_script()
 		end
 	end
 
-	local res = vim.system(
-		{
-			"python3",
-			"-c",
-			"import cppman, os; print(os.path.join(os.path.dirname(cppman.__file__), 'lib', 'pager.sh'))",
-		},
-		{ text = true }
-	):wait()
+	local res = vim.system({
+		"python3",
+		"-c",
+		"import cppman, os; print(os.path.join(os.path.dirname(cppman.__file__), 'lib', 'pager.sh'))",
+	}, { text = true }):wait()
 	if res.code == 0 then
 		local path = vim.trim(res.stdout or "")
 		if path ~= "" and vim.fn.filereadable(path) == 1 then
