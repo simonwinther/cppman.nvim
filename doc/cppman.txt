@@ -18,6 +18,8 @@ Table of Contents                                   *cppman-table-of-contents*
 ==============================================================================
 1. CPPMan.nvim                                            *cppman-cppman.nvim*
 
+_(Demo recorded in version v0.0.4)_
+
 A Neovim plugin for the cppman CLI <https://github.com/aitjcize/cppman>, so you
 can search cplusplus.com and cppreference.com without leaving Neovim.
 
