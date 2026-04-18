@@ -24,10 +24,10 @@ jobs:
           neovim: true
           version: ${{ matrix.neovim }}
 
-      - name: Install nui.nvim
+      - name: Install snacks.nvim
         run: |
           mkdir -p .tests/deps
-          git clone --depth=1 https://github.com/MunifTanjim/nui.nvim .tests/deps/nui.nvim
+          git clone --depth=1 https://github.com/folke/snacks.nvim .tests/deps/snacks.nvim
 
       - name: Run smoke test
-        run: nvim --headless -u NONE -c "set rtp+=$PWD,$PWD/.tests/deps/nui.nvim" -l scripts/smoke_test.lua
+        run: nvim --headless -u NONE -c "set rtp+=$PWD,$PWD/.tests/deps/snacks.nvim" -l scripts/smoke_test.lua
