@@ -1,5 +1,5 @@
 syntax case ignore
-syntax match  manReference       "[a-z_:+-\*][a-z_:+-~!\*<>()]\+ ([1-9][a-z]\=)"
+syntax match  manReference       "[a-z_:+*~!<>()-]\+ ([1-9][a-z]\=)"
 syntax match  manTitle           "^\w.\+([0-9]\+[a-z]\=).*"
 syntax match  manSectionHeading  "^[a-z][a-z_ \-:]*[a-z]$"
 syntax match  manSubHeading      "^\s\{3\}[a-z][a-z ]*[a-z]$"
@@ -15,7 +15,6 @@ syntax region manSynopsis start="^EXAMPLE"hs=s+7 end="^       [^ ]"he=s-1 keepen
 " Define the default highlighting.
 " For version 5.7 and earlier: only when not done already
 " For version 5.8 and later: only when an item doesn't have highlighting yet
-echo version
 if version >= 508 || !exists("did_man_syn_inits")
   if version < 508
     let did_man_syn_inits = 1

@@ -20,6 +20,25 @@ assert(history_ok, "failed to require cppman.history: " .. tostring(history))
 local index_ok, index = pcall(require, "cppman.index")
 assert(index_ok, "failed to require cppman.index")
 
+for _, mod in ipairs({ "cppman.render", "cppman.sections", "cppman.viewer", "cppman.picker", "cppman.health" }) do
+	local rok, rerr = pcall(require, mod)
+	assert(rok, "failed to require " .. mod .. ": " .. tostring(rerr))
+end
+
+-- Source whitelist guards against arbitrary input.
+local bad_ok, bad_err = pcall(index.load, "evil; DROP TABLE x")
+assert(not bad_ok, "expected source whitelist to reject bad input")
+assert(tostring(bad_err):find("invalid source", 1, true), "expected 'invalid source' in error: " .. tostring(bad_err))
+
+-- Re-setup is idempotent and clears caches.
+assert(pcall(cppman.setup, {}), "re-setup failed")
+assert(pcall(cppman.setup, { source = "cppreference.com" }), "re-setup with source override failed")
+
+local sections = require("cppman.sections")
+local sample = { "NAME", "      vector", "", "DESCRIPTION", "      ...", "  1) thing", "", "EXAMPLE" }
+local idx = sections.build(sample)
+assert(idx.ordered ~= nil, "sections.build did not return ordered list")
+
 local db_path = index.resolve_db("cppreference.com")
 if db_path then
 	local cppreference_items = index.load("cppreference.com")
@@ -30,6 +49,18 @@ if db_path then
 	local vector_matches = index.find_exact_matches("std::vector", "both")
 	assert(#vector_matches >= 1, "expected exact matches for std::vector in combined index")
 	assert(vector_matches[1].source ~= nil, "combined exact match is missing source metadata")
+
+	-- Render pipeline: actually exercise cppman + cache.
+	local render = require("cppman.render")
+	local lines, timing = render.render_page("std::vector", 80, "cppreference.com")
+	if lines then
+		assert(#lines > 10, "render produced too few lines: " .. #lines)
+		assert(timing ~= nil, "first render must report timing")
+		local _, t2 = render.render_page("std::vector", 80, "cppreference.com")
+		assert(t2 == nil, "second render at same width must be a cache hit")
+	else
+		print("Skipping render test (cppman could not render std::vector).")
+	end
 else
 	print("Skipping index data tests because no valid index.db was found.")
 end

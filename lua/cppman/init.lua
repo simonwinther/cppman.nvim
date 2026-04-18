@@ -5,11 +5,11 @@ function M.setup(opts)
 	config.setup(opts)
 
 	vim.api.nvim_create_user_command("CPPMan", function(args)
-		local term = args.args and vim.trim(args.args) or ""
-		if #term > 1 then
-			M.open_for(term)
-		else
+		local term = vim.trim(args.args or "")
+		if term == "" then
 			M.search()
+		else
+			M.open_for(term)
 		end
 	end, { nargs = "?" })
 
@@ -62,9 +62,5 @@ function M.open_for(word)
 		M.search({ search = word, source = source })
 	end
 end
-
--- Legacy aliases for any callers using the old API
-M.input = M.search
-M.open_cppman_for = M.open_for
 
 return M

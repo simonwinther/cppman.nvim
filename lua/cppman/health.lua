@@ -5,6 +5,12 @@ function M.check()
 
 	h.start("cppman.nvim")
 
+	if vim.fn.has("nvim-0.10") == 1 then
+		h.ok("Neovim 0.10+ detected")
+	else
+		h.error("Neovim 0.10+ required (uses vim.keycode, vim.system, vim.uv)")
+	end
+
 	if vim.fn.executable("cppman") == 1 then
 		h.ok("cppman executable found")
 	else

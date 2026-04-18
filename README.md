@@ -10,6 +10,7 @@ A Neovim plugin for the [cppman CLI](https://github.com/aitjcize/cppman), so you
 
 ## Requirements
 
+- Neovim 0.10+ (uses `vim.keycode`, `vim.system`, `vim.uv`)
 - [cppman](https://github.com/aitjcize/cppman) - for rendering documentation pages
 - `sqlite3` CLI - for querying the keyword index (`apt install sqlite3`, `brew install sqlite`)
 - [folke/snacks.nvim](https://github.com/folke/snacks.nvim) - for the fuzzy picker UI
@@ -107,8 +108,10 @@ Rendered pages are also cached in memory for the current Neovim session, so reop
 
 In normal mode, the docs viewer uses the same navigation as standalone `cppman`:
 
-* **K**, **\<C-]\>**, **\<2-LeftMouse\>** - follow the word under the cursor
-* **\<C-T\>**, **\<RightMouse\>** - go back to the previous page
+* **K**, **\<C-]\>**, **\<2-LeftMouse\>** - follow the word under the cursor (when the cursor is on a TOC entry, jumps to that section instead)
+* **\<C-T\>**, **\<RightMouse\>** - go back to the previous page (cursor position is restored)
+* **\<Tab\>** - go forward (undo a back navigation; cursor position is restored)
+* **q** - close the viewer
 
 In visual mode inside the viewer:
 

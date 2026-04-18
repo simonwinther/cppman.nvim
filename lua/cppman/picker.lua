@@ -92,7 +92,12 @@ function M.open(opts)
 		end,
 		confirm = function(picker, item)
 			if item then
-				M.last_pattern = (picker.input and picker.input.filter and picker.input.filter.pattern) or pattern
+				-- snacks.picker has no public accessor for the live input; reach into
+				-- internals defensively so a snacks rename only loses the breadcrumb.
+				local ok, current = pcall(function()
+					return picker.input.filter.pattern
+				end)
+				M.last_pattern = (ok and current) or pattern
 			end
 			picker:close()
 			if item and on_select then

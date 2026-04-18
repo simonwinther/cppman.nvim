@@ -2,6 +2,7 @@ local M = {}
 
 local uv = vim.uv or vim.loop
 local SOURCE_PRIORITY = { "cppreference.com", "cplusplus.com" }
+local VALID_SOURCES = { ["cppreference.com"] = true, ["cplusplus.com"] = true, ["both"] = true }
 
 local _cache = {}
 local _exact_map = {}
@@ -13,12 +14,23 @@ local function now_ms()
 	return uv.hrtime() / 1e6
 end
 
+local function validate_source(source)
+	if not VALID_SOURCES[source] then
+		error(
+			"[cppman] invalid source: "
+				.. tostring(source)
+				.. " (expected one of: cppreference.com, cplusplus.com, both)"
+		)
+	end
+	return source
+end
+
 local function get_source_mode(source)
 	if source ~= nil then
-		return source
+		return validate_source(source)
 	end
 	local config = require("cppman.config")
-	return config.options.source or SOURCE_PRIORITY[1]
+	return validate_source(config.options.source or SOURCE_PRIORITY[1])
 end
 
 function M.get_sources(source)
@@ -74,7 +86,13 @@ local function validate_db(db_path, source)
 	return (tonumber(rows[1]) or 0) > 0
 end
 
-local function find_packaged_db()
+local _cppman_base_dir = nil
+local _cppman_base_dir_resolved = false
+local function cppman_base_dir()
+	if _cppman_base_dir_resolved then
+		return _cppman_base_dir
+	end
+	_cppman_base_dir_resolved = true
 	local res = vim.system(
 		{ "python3", "-c", "import cppman, os; print(os.path.dirname(cppman.__file__))" },
 		{ text = true }
@@ -83,12 +101,42 @@ local function find_packaged_db()
 	if res.code == 0 then
 		local base = vim.trim(res.stdout or "")
 		if base ~= "" then
-			for _, candidate in ipairs({ base .. "/lib/index.db", base .. "/index.db" }) do
-				if vim.fn.filereadable(candidate) == 1 then
-					return candidate
-				end
+			_cppman_base_dir = base
+		end
+	end
+	return _cppman_base_dir
+end
+
+-- Returns { db = path|nil, pager = path|nil } resolved from one python introspection.
+local _cppman_paths = nil
+function M.cppman_paths()
+	if _cppman_paths then
+		return _cppman_paths
+	end
+	local base = cppman_base_dir()
+	local db, pager
+	if base then
+		for _, candidate in ipairs({ base .. "/lib/index.db", base .. "/index.db" }) do
+			if vim.fn.filereadable(candidate) == 1 then
+				db = candidate
+				break
 			end
 		end
+		for _, candidate in ipairs({ base .. "/lib/pager.sh", base .. "/pager.sh" }) do
+			if vim.fn.filereadable(candidate) == 1 then
+				pager = candidate
+				break
+			end
+		end
+	end
+	_cppman_paths = { db = db, pager = pager }
+	return _cppman_paths
+end
+
+local function find_packaged_db()
+	local paths = M.cppman_paths()
+	if paths.db then
+		return paths.db
 	end
 	local fallbacks = {
 		"/usr/lib/cppman/lib/index.db",
@@ -266,6 +314,9 @@ function M.reset()
 	_cache = {}
 	_exact_map = {}
 	_db_path = nil
+	_cppman_paths = nil
+	_cppman_base_dir = nil
+	_cppman_base_dir_resolved = false
 	M.last_load_ms = nil
 end
 
