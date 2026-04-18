@@ -1,15 +1,52 @@
 local M = {}
 
 local uv = vim.uv or vim.loop
+local SOURCE_PRIORITY = { "cppreference.com", "cplusplus.com" }
 
 local _cache = {}
-local _lower_map = {}
+local _exact_map = {}
 local _db_path = nil
 
 M.last_load_ms = nil
 
 local function now_ms()
 	return uv.hrtime() / 1e6
+end
+
+local function get_source_mode(source)
+	if source ~= nil then
+		return source
+	end
+	local config = require("cppman.config")
+	return config.options.source or SOURCE_PRIORITY[1]
+end
+
+function M.get_sources(source)
+	source = get_source_mode(source)
+	if source == "both" then
+		return SOURCE_PRIORITY
+	end
+	return { source }
+end
+
+local function add_exact_item(map, item)
+	local bucket = map[item.text_lower]
+	if bucket then
+		bucket[#bucket + 1] = item
+	else
+		map[item.text_lower] = { item }
+	end
+end
+
+local function copy_exact_items(items)
+	if not items then
+		return {}
+	end
+	local copied = {}
+	for i = 1, #items do
+		copied[i] = items[i]
+	end
+	return copied
 end
 
 -- Spawn sqlite3 directly without a shell. Returns (lines, err).
@@ -41,8 +78,7 @@ local function find_packaged_db()
 	local res = vim.system(
 		{ "python3", "-c", "import cppman, os; print(os.path.dirname(cppman.__file__))" },
 		{ text = true }
-	)
-		:wait()
+	):wait()
 	if res.code == 0 then
 		local base = vim.trim(res.stdout or "")
 		if base ~= "" then
@@ -72,6 +108,8 @@ function M.resolve_db(source)
 	if _db_path then
 		return _db_path
 	end
+
+	source = M.get_sources(source)[1]
 
 	local config = require("cppman.config")
 	local opts = config.options.index or {}
@@ -105,34 +143,26 @@ function M.resolve_db(source)
 	return nil
 end
 
-function M.load(source)
-	local config = require("cppman.config")
-	source = source or config.options.source or "cppreference.com"
-
+local function load_single_source(source)
 	if _cache[source] then
-		M.last_load_ms = nil
 		return _cache[source]
 	end
 
-	local t0 = now_ms()
-
 	local db = M.resolve_db(source)
 	if not db then
-		M.last_load_ms = nil
 		vim.notify("[cppman] no valid index.db found — check cppman installation", vim.log.levels.ERROR)
 		return {}
 	end
 
 	local rows, err = run_sqlite(db, string.format('SELECT title FROM "%s"', source))
 	if err then
-		M.last_load_ms = nil
 		vim.notify("[cppman] index query failed: " .. err, vim.log.levels.ERROR)
 		return {}
 	end
 
 	local items = {}
 	local seen = {}
-	local lower_map = {}
+	local exact_map = {}
 
 	for i = 1, #(rows or {}) do
 		local title = vim.trim(rows[i])
@@ -141,7 +171,7 @@ function M.load(source)
 			local lower = title:lower()
 			local item = { text = title, text_lower = lower, name = title, source = source }
 			items[#items + 1] = item
-			lower_map[lower] = item
+			add_exact_item(exact_map, item)
 		end
 	end
 
@@ -167,31 +197,73 @@ function M.load(source)
 					local lower = keyword:lower()
 					local item = { text = keyword, text_lower = lower, name = title, source = source }
 					items[#items + 1] = item
-					lower_map[lower] = item
+					add_exact_item(exact_map, item)
 				end
 			end
 		end
 	end
 
 	_cache[source] = items
-	_lower_map[source] = lower_map
-	M.last_load_ms = now_ms() - t0
+	_exact_map[source] = exact_map
 	return items
 end
 
-function M.find_exact(name, source)
-	local config = require("cppman.config")
-	source = source or config.options.source or "cppreference.com"
-	if not _lower_map[source] then
+function M.load(source)
+	source = get_source_mode(source)
+
+	if _cache[source] then
+		M.last_load_ms = nil
+		return _cache[source]
+	end
+
+	local t0 = now_ms()
+	if source == "both" then
+		local items = {}
+		local exact_map = {}
+		local seen = {}
+		for _, source_name in ipairs(M.get_sources(source)) do
+			for _, item in ipairs(load_single_source(source_name)) do
+				local dedupe_key = item.text_lower .. "\0" .. item.name:lower()
+				if not seen[dedupe_key] then
+					seen[dedupe_key] = true
+					local merged = {
+						text = item.text,
+						text_lower = item.text_lower,
+						name = item.name,
+						source = item.source,
+					}
+					items[#items + 1] = merged
+					add_exact_item(exact_map, merged)
+				end
+			end
+		end
+		_cache[source] = items
+		_exact_map[source] = exact_map
+	else
+		load_single_source(source)
+	end
+
+	M.last_load_ms = now_ms() - t0
+	return _cache[source] or {}
+end
+
+function M.find_exact_matches(name, source)
+	source = get_source_mode(source)
+	if not _exact_map[source] then
 		M.load(source)
 	end
-	local map = _lower_map[source]
-	return map and map[name:lower()] or nil
+	local map = _exact_map[source]
+	return map and copy_exact_items(map[name:lower()]) or {}
+end
+
+function M.find_exact(name, source)
+	local matches = M.find_exact_matches(name, source)
+	return matches[1]
 end
 
 function M.reset()
 	_cache = {}
-	_lower_map = {}
+	_exact_map = {}
 	_db_path = nil
 	M.last_load_ms = nil
 end

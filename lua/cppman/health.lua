@@ -31,10 +31,10 @@ function M.check()
 
 	local config = require("cppman.config")
 	local index = require("cppman.index")
-	local source = config.options.source or "cppreference.com"
-	local db = index.resolve_db(source)
+	local source = config.options.source or "both"
+	local db = index.resolve_db(index.get_sources(source)[1])
 	if db then
-		h.ok("index.db resolved: " .. db)
+		h.ok("index.db resolved for " .. source .. ": " .. db)
 	else
 		h.error(
 			"no valid index.db found",

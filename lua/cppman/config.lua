@@ -5,9 +5,13 @@ M.defaults = {
 		open_under_cursor = "<leader>cu",
 		search = "<leader>ck",
 	},
-	source = "cppreference.com",
+	source = "both",
 	index = {
 		db_path = nil,
+	},
+	picker = {
+		width = 0.4,
+		height = 0.4,
 	},
 	viewer = {
 		width = 0.8,

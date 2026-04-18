@@ -15,8 +15,10 @@ local _pager_script = nil
 
 local state = { win = nil, buf = nil }
 local _current_page_name = nil
+local _current_page_source = nil
 local _current_page_label = nil
 local _current_timing_text = nil
+local _current_sections = nil
 
 -- Forward declarations — go_back and open_picker_for_back reference each other.
 local go_back
@@ -30,7 +32,31 @@ local function is_valid()
 	return state.win and vim.api.nvim_win_is_valid(state.win) and state.buf and vim.api.nvim_buf_is_valid(state.buf)
 end
 
-local function cppman_args(extra)
+local function get_source(source)
+	return index.get_sources(source)[1]
+end
+
+local function current_source()
+	return _current_page_source or get_source()
+end
+
+local function get_config_dir(source)
+	local dir = plugin_cache_dir .. "/config_" .. source
+	local cppman_dir = dir .. "/cppman"
+	if vim.fn.isdirectory(cppman_dir) == 0 then
+		vim.fn.mkdir(cppman_dir, "p")
+		local cfg_path = cppman_dir .. "/cppman.cfg"
+		local cfg_content = "[Settings]\nSource = " .. source .. "\nUpdateManPath = false\nPager = vim\n"
+		local f = io.open(cfg_path, "w")
+		if f then
+			f:write(cfg_content)
+			f:close()
+		end
+	end
+	return dir
+end
+
+local function cppman_args(source, extra)
 	local args = { "cppman" }
 	for i = 1, #extra do
 		args[#args + 1] = extra[i]
@@ -38,9 +64,12 @@ local function cppman_args(extra)
 	return args
 end
 
-local function run_cppman(args, stdin)
+local function run_cppman(source, args, stdin)
 	return vim.system(args, {
-		env = { XDG_CACHE_HOME = plugin_cache_dir },
+		env = {
+			XDG_CACHE_HOME = plugin_cache_dir,
+			XDG_CONFIG_HOME = get_config_dir(get_source(source)),
+		},
 		stdin = stdin,
 		text = true,
 	}):wait()
@@ -50,8 +79,8 @@ local function normalize_page_name(name)
 	return name:gsub("/", "_")
 end
 
-local function get_cached_page_path(name)
-	local source = config.options.source or "cppreference.com"
+local function get_cached_page_path(name, source)
+	source = get_source(source)
 	local filename = normalize_page_name(name) .. ".3.gz"
 	local candidates = {
 		plugin_cache_dir .. "/cppman/" .. source .. "/" .. filename,
@@ -71,9 +100,8 @@ local function get_pager_script()
 		return _pager_script or nil
 	end
 
-	local source = config.options.source or "cppreference.com"
 	local candidates = {}
-	local db_path = index.resolve_db(source)
+	local db_path = index.resolve_db(get_source())
 	if db_path then
 		local db_dir = db_path:match("^(.*)/[^/]+$")
 		if db_dir then
@@ -124,12 +152,27 @@ local function render_cached_page(page_path, width, name)
 	return res.stdout
 end
 
+local function strip_cppman_banner(lines)
+	if lines[1] and lines[1]:find("Source set to", 1, true) == 1 then
+		for i = 2, #lines do
+			lines[i - 1] = lines[i]
+		end
+		lines[#lines] = nil
+		while lines[1] == "" do
+			for i = 2, #lines do
+				lines[i - 1] = lines[i]
+			end
+			lines[#lines] = nil
+		end
+	end
+end
+
 -- Render a cppman page. Cached pages use cppman's pager.sh directly when
 -- available, while uncached pages fall back to the cppman CLI. Caches hits AND
 -- misses so re-renders and English-prose K presses never re-spawn the process.
 -- Returns (lines|nil, timing|nil). timing is nil on in-memory cache hits.
-local function render_page(name, width)
-	local source = config.options.source or "cppreference.com"
+local function render_page(name, width, source)
+	source = get_source(source)
 	local key = source .. "\0" .. name .. "\0" .. width
 	local cached = page_cache[key]
 	if cached ~= nil then
@@ -142,7 +185,7 @@ local function render_page(name, width)
 	-- Fast path for already-cached pages: render the gzipped manpage directly.
 	-- Fall back to cppman when the page is not cached yet or direct rendering fails.
 	local stdout = nil
-	local page_path = get_cached_page_path(name)
+	local page_path = get_cached_page_path(name, source)
 	if page_path then
 		stdout = render_cached_page(page_path, width, name)
 	end
@@ -150,7 +193,7 @@ local function render_page(name, width)
 	if not stdout then
 		-- XDG_CACHE_HOME override keeps cppman from using a possibly-broken local cache.
 		-- vim.system merges env by default (extends parent env).
-		local res = run_cppman(cppman_args({ "--force-columns", tostring(width), name }), "1\n")
+		local res = run_cppman(source, cppman_args(source, { "--force-columns", tostring(width), name }), "1\n")
 		if res.code ~= 0 or not res.stdout or res.stdout == "" then
 			page_cache[key] = false
 			return nil, {
@@ -169,6 +212,7 @@ local function render_page(name, width)
 	if lines[#lines] == "" then
 		lines[#lines] = nil
 	end
+	strip_cppman_banner(lines)
 
 	-- Strip disambiguation menu header ("Please enter the selection: [1]") in-place.
 	local content_start = 1
@@ -210,8 +254,8 @@ end
 -- the index. Uses item.text_lower (set by index.lua) — no per-check :lower() calls.
 -- Rebuilds only when index.load() returns a different table (reset).
 local _haystack = { items = nil, blob = "" }
-local function has_substring_match(needle_lower)
-	local items = index.load()
+local function has_substring_match(needle_lower, source)
+	local items = index.load(source)
 	if _haystack.items ~= items then
 		local parts = {}
 		for i = 1, #items do
@@ -223,15 +267,15 @@ local function has_substring_match(needle_lower)
 	return _haystack.blob:find(needle_lower, 1, true) ~= nil
 end
 
-local function resolve_page(name, preferred)
-	local source = config.options.source or "cppreference.com"
+local function resolve_page(name, preferred, source)
+	source = get_source(source)
 	local key = source .. "\0" .. name .. "\0" .. (preferred or "")
 	local cached = resolve_cache[key]
 	if cached ~= nil then
 		return cached or nil
 	end
 
-	local res = run_cppman(cppman_args({ "-f", name }))
+	local res = run_cppman(source, cppman_args(source, { "-f", name }))
 	if res.code ~= 0 then
 		resolve_cache[key] = false
 		return nil
@@ -242,7 +286,7 @@ local function resolve_page(name, preferred)
 
 	for _, line in ipairs(vim.split(res.stdout or "", "\n", { plain = true })) do
 		line = vim.trim(line)
-		if line ~= "" then
+		if line ~= "" and line:find("Source set to", 1, true) ~= 1 then
 			local alias, canonical = line:match("^(.-) %- (.+)$")
 			local render_name = vim.trim(alias or canonical or line)
 			if render_name ~= "" then
@@ -340,6 +384,100 @@ local function extract_page_label(name, lines)
 	return name
 end
 
+local function normalize_section_key(text)
+	text = vim.trim((text or ""):lower())
+	text = text:gsub("^%d+[%s%)]+", "")
+	text = text:gsub("[%-‐]%s+", "")
+	text = text:gsub("%s+", " ")
+	return text
+end
+
+local function is_section_heading(line)
+	return line ~= "" and line == line:upper() and line:find("%u") ~= nil
+end
+
+local function build_section_index(lines)
+	local sections = { ordered = {}, toc_start = nil, toc_end = nil }
+	local description_line = nil
+	local first_section_after_description = nil
+
+	for i = 1, #lines do
+		local line = lines[i]
+		if is_section_heading(line) then
+			local key = normalize_section_key(line)
+			if key == "description" then
+				description_line = i
+			elseif key ~= "name" then
+				sections.ordered[#sections.ordered + 1] = { key = key, line = i }
+				if description_line and not first_section_after_description then
+					first_section_after_description = i
+				end
+			end
+		end
+	end
+
+	if description_line and first_section_after_description then
+		for i = description_line + 1, first_section_after_description - 1 do
+			if lines[i]:find("^%s*1[%s%)]") then
+				sections.toc_start = i
+				sections.toc_end = first_section_after_description - 1
+				while sections.toc_end >= sections.toc_start and vim.trim(lines[sections.toc_end]) == "" do
+					sections.toc_end = sections.toc_end - 1
+				end
+				break
+			end
+		end
+	end
+
+	return sections
+end
+
+local function get_toc_target_line()
+	if not is_valid() or not _current_sections or not _current_sections.toc_start then
+		return nil
+	end
+
+	local row = vim.api.nvim_win_get_cursor(state.win)[1]
+	if row < _current_sections.toc_start or row > _current_sections.toc_end then
+		return nil
+	end
+
+	local word = normalize_section_key(vim.fn.expand("<cword>"))
+	if word == "" then
+		return nil
+	end
+
+	if word:match("^%d+$") then
+		local entry = _current_sections.ordered[tonumber(word)]
+		return entry and entry.line or nil
+	end
+
+	local matches = {}
+	local pattern = "%f[%a]" .. vim.pesc(word) .. "%f[^%a]"
+	for _, section in ipairs(_current_sections.ordered) do
+		if section.key:find(pattern) then
+			matches[#matches + 1] = section.line
+		end
+	end
+
+	if #matches == 1 then
+		return matches[1]
+	end
+
+	return nil
+end
+
+local function jump_to_toc_section()
+	local line = get_toc_target_line()
+	if not line then
+		return false
+	end
+
+	vim.api.nvim_win_set_cursor(state.win, { line, 0 })
+	vim.cmd("normal! zz")
+	return true
+end
+
 local function format_timing_value(elapsed)
 	if elapsed == nil then
 		return "cached"
@@ -362,14 +500,15 @@ local function format_timing_breakdown(timing)
 	)
 end
 
-local function load_page(name, lines, timing)
+local function load_page(name, lines, timing, source)
 	if not is_valid() then
 		return false
 	end
+	source = get_source(source)
 
 	if not lines then
 		local width = vim.api.nvim_win_get_width(state.win) - 4
-		lines, timing = render_page(name, width)
+		lines, timing = render_page(name, width, source)
 		if not lines then
 			vim.notify("[cppman] failed to render page for: " .. name, vim.log.levels.ERROR)
 			return false
@@ -390,7 +529,9 @@ local function load_page(name, lines, timing)
 
 	vim.api.nvim_win_set_cursor(state.win, { 1, 0 })
 	_current_page_name = name
+	_current_page_source = source
 	_current_page_label = extract_page_label(name, lines)
+	_current_sections = build_section_index(lines)
 	if timing then
 		local ui_ms = now_ms() - ui_t0
 		timing.our_ms = timing.our_ms + ui_ms
@@ -427,21 +568,22 @@ local function get_cursor_lookup_text()
 	return fallback, nil
 end
 
-local function try_open_page(name)
+local function try_open_page(name, source)
 	if not is_valid() then
 		return false
 	end
+	source = get_source(source)
 
 	local width = vim.api.nvim_win_get_width(state.win) - 4
-	local lines, timing = render_page(name, width)
+	local lines, timing = render_page(name, width, source)
 	if not lines then
 		return false
 	end
 
 	if _current_page_name then
-		history.push({ type = "page", name = _current_page_name })
+		history.push({ type = "page", name = _current_page_name, source = _current_page_source })
 	end
-	return load_page(name, lines, timing)
+	return load_page(name, lines, timing, source)
 end
 
 local function refocus_viewer()
@@ -458,26 +600,28 @@ go_back = function()
 		return
 	end
 	if entry.type == "page" then
-		load_page(entry.name)
+		load_page(entry.name, nil, nil, entry.source)
 		refocus_viewer()
 	else
-		open_picker_for_back(entry.pattern)
+		open_picker_for_back(entry.pattern, entry.source)
 	end
 end
 
-open_picker_for_back = function(pattern)
+open_picker_for_back = function(pattern, source)
 	require("cppman.picker").open({
 		search = pattern,
+		source = source,
 		on_back = go_back,
 		on_select = function(item, used_pattern)
-			history.push({ type = "search", pattern = used_pattern })
-			load_page(item.name)
+			history.push({ type = "search", pattern = used_pattern, source = source })
+			load_page(item.name, nil, nil, item.source)
 			refocus_viewer()
 		end,
 	})
 end
 
 local function follow_word(word, fallback_word)
+	local source = current_source()
 	word = normalize_lookup_text(word)
 	if word == "" then
 		return
@@ -488,58 +632,59 @@ local function follow_word(word, fallback_word)
 		fallback_word = ""
 	end
 
-	local exact = index.find_exact(word)
-	if exact and try_open_page(exact.name) then
+	local exact = index.find_exact(word, source)
+	if exact and try_open_page(exact.name, exact.source or source) then
 		return
 	end
 
 	-- Ask cppman directly first. This keeps canonical man-page names on the fast path.
-	if try_open_page(word) then
+	if try_open_page(word, source) then
 		return
 	end
 
 	local word_lower = word:lower()
-	if not has_substring_match(word_lower) then
+	if not has_substring_match(word_lower, source) then
 		return
 	end
 
 	-- If the visible text is just a partial reference like "literals", ask cppman
 	-- to resolve it to its best matching page before falling back to the picker.
-	local resolved = resolve_page(word)
-	if resolved and resolved ~= word and try_open_page(resolved) then
+	local resolved = resolve_page(word, nil, source)
+	if resolved and resolved ~= word and try_open_page(resolved, source) then
 		return
 	end
 
 	if fallback_word ~= "" then
-		local fallback_resolved = resolve_page(fallback_word, word_lower)
-		if fallback_resolved and try_open_page(fallback_resolved) then
+		local fallback_resolved = resolve_page(fallback_word, word_lower, source)
+		if fallback_resolved and try_open_page(fallback_resolved, source) then
 			return
 		end
 
-		local fallback_exact = index.find_exact(fallback_word)
-		if fallback_exact and try_open_page(fallback_exact.name) then
+		local fallback_exact = index.find_exact(fallback_word, source)
+		if fallback_exact and try_open_page(fallback_exact.name, fallback_exact.source or source) then
 			return
 		end
 
-		if try_open_page(fallback_word) then
+		if try_open_page(fallback_word, source) then
 			return
 		end
 
-		fallback_resolved = resolve_page(fallback_word)
-		if fallback_resolved and fallback_resolved ~= fallback_word and try_open_page(fallback_resolved) then
+		fallback_resolved = resolve_page(fallback_word, nil, source)
+		if fallback_resolved and fallback_resolved ~= fallback_word and try_open_page(fallback_resolved, source) then
 			return
 		end
 	end
 
 	if _current_page_name then
-		history.push({ type = "page", name = _current_page_name })
+		history.push({ type = "page", name = _current_page_name, source = _current_page_source })
 	end
 	require("cppman.picker").open({
 		search = word,
+		source = source,
 		on_back = go_back,
 		on_select = function(item, used_pattern)
-			history.push({ type = "search", pattern = used_pattern })
-			load_page(item.name)
+			history.push({ type = "search", pattern = used_pattern, source = source })
+			load_page(item.name, nil, nil, item.source)
 			refocus_viewer()
 		end,
 	})
@@ -582,8 +727,10 @@ local function close()
 	end
 	history.reset()
 	_current_page_name = nil
+	_current_page_source = nil
 	_current_page_label = nil
 	_current_timing_text = nil
+	_current_sections = nil
 	state.win = nil
 	state.buf = nil
 end
@@ -595,6 +742,9 @@ local function setup_keymaps(buf)
 
 	map("n", "q", close)
 	map("n", "K", function()
+		if jump_to_toc_section() then
+			return
+		end
 		local word, fallback = get_cursor_lookup_text()
 		follow_word(word, fallback)
 	end)
@@ -624,11 +774,21 @@ local function setup_keymaps(buf)
 	map("n", "<RightMouse>", go_back)
 end
 
-function M.open(name, from_search)
+function M.open(name, from_search, source, search_source)
+	if type(name) == "table" then
+		local opts = name
+		name = opts.name
+		from_search = opts.from_search
+		source = opts.source
+		search_source = opts.search_source
+	end
+
 	name = normalize_lookup_text(name)
 	if name == "" then
 		return
 	end
+	source = get_source(source)
+	search_source = search_source or source
 
 	if is_valid() then
 		close()
@@ -636,11 +796,13 @@ function M.open(name, from_search)
 
 	history.reset()
 	if from_search and from_search ~= "" then
-		history.push({ type = "search", pattern = from_search })
+		history.push({ type = "search", pattern = from_search, source = search_source })
 	end
 	_current_page_name = nil
+	_current_page_source = nil
 	_current_page_label = nil
 	_current_timing_text = nil
+	_current_sections = nil
 
 	local buf = vim.api.nvim_create_buf(false, true)
 	vim.bo[buf].bufhidden = "wipe"
@@ -683,14 +845,16 @@ function M.open(name, from_search)
 		callback = function()
 			history.reset()
 			_current_page_name = nil
+			_current_page_source = nil
 			_current_page_label = nil
 			_current_timing_text = nil
+			_current_sections = nil
 			state.win = nil
 			state.buf = nil
 		end,
 	})
 
-	load_page(name)
+	load_page(name, nil, nil, source)
 end
 
 return M

@@ -1,5 +1,6 @@
 -- Typed navigation stack.
--- Entries: { type = "page", name = "..." } | { type = "search", pattern = "..." }
+-- Entries: { type = "page", name = "...", source = "..." }
+--       or { type = "search", pattern = "...", source = "..." }
 -- The current page is NOT stored here — viewer.lua tracks that separately.
 local M = {}
 

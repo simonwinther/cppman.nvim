@@ -27,11 +27,18 @@ function M.setup(opts)
 end
 
 function M.search(opts)
+	local config = require("cppman.config")
+	local source = (opts and opts.source) or config.options.source
 	local picker = require("cppman.picker")
 	local viewer = require("cppman.viewer")
 	picker.open(vim.tbl_extend("force", opts or {}, {
 		on_select = function(item, used_pattern)
-			viewer.open(item.name, used_pattern)
+			viewer.open({
+				name = item.name,
+				from_search = used_pattern,
+				source = item.source,
+				search_source = source,
+			})
 		end,
 	}))
 end
@@ -46,12 +53,13 @@ function M.open_for(word)
 	local config = require("cppman.config")
 	local index = require("cppman.index")
 	local viewer = require("cppman.viewer")
+	local source = config.options.source
 
-	local exact = index.find_exact(word, config.options.source)
-	if exact then
-		viewer.open(exact.name)
+	local matches = index.find_exact_matches(word, source)
+	if #matches == 1 then
+		viewer.open({ name = matches[1].name, source = matches[1].source })
 	else
-		M.search({ search = word })
+		M.search({ search = word, source = source })
 	end
 end
 
