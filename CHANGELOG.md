@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.0.5](https://github.com/simonwinther/cppman.nvim/compare/v0.0.4...v0.0.5) (2026-04-18)
+
+
+### Features
+
+* **viewer:** add TOC section jumps and forward nav with cursor restore ([d140caf](https://github.com/simonwinther/cppman.nvim/commit/d140caf529909cffb7e7a7f371524eed9ad401b4))
+
+
+### Bug Fixes
+
+* **index:** add aliases for fixed-width integer cppreference symbols ([f2d35fc](https://github.com/simonwinther/cppman.nvim/commit/f2d35fc895960859ce37d2d8ce2144c134178d55))
+* **index:** map pages to preferred keywords for opens and history ([e5c3edd](https://github.com/simonwinther/cppman.nvim/commit/e5c3eddb8e02ee7991197412c432e47930c97d54))
+
 ## [0.0.4](https://github.com/simonwinther/cppman.nvim/compare/v0.0.3...v0.0.4) (2026-04-18)
 
 
