@@ -6,23 +6,23 @@ local M = {}
 local stack = {}
 
 function M.push(entry)
-  stack[#stack + 1] = entry
+	stack[#stack + 1] = entry
 end
 
 function M.pop()
-  return table.remove(stack)
+	return table.remove(stack)
 end
 
 function M.peek()
-  return stack[#stack]
+	return stack[#stack]
 end
 
 function M.size()
-  return #stack
+	return #stack
 end
 
 function M.reset()
-  stack = {}
+	stack = {}
 end
 
 return M
