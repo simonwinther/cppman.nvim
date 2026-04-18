@@ -28,6 +28,10 @@ end
 local stack = {}
 local current_page = nil
 
+local function normalize_search_term(text)
+	return vim.trim(text:gsub("%s+", " "))
+end
+
 local function reload(manwidth, word_to_search)
 	vim.bo.ro = false
 	vim.bo.ma = true
@@ -50,17 +54,64 @@ local function reload(manwidth, word_to_search)
 	vim.bo.filetype = "cppman"
 end
 
-local function loadNewPage()
+local function followPage(word_to_search)
+	word_to_search = normalize_search_term(word_to_search or "")
+	if word_to_search == "" then
+		return
+	end
+
 	if current_page ~= nil then
 		table.insert(stack, current_page)
 	end
 
-	current_page = vim.fn.expand("<cWORD>")
+	current_page = word_to_search
 
 	local wininfo = vim.fn.getwininfo(vim.fn.win_getid())[1]
 	local manwidth = wininfo.width - 4
 
 	reload(manwidth, current_page)
+end
+
+local function loadNewPage()
+	followPage(vim.fn.expand("<cWORD>"))
+end
+
+local function loadVisualSelection()
+	local mode = vim.fn.mode()
+	local start_pos
+	local end_pos
+
+	if mode == "v" or mode == "V" or mode == "\22" then
+		start_pos = vim.fn.getpos("v")
+		end_pos = vim.fn.getpos(".")
+	else
+		mode = vim.fn.visualmode()
+		start_pos = vim.fn.getpos("'<")
+		end_pos = vim.fn.getpos("'>")
+	end
+
+	local start_row = start_pos[2]
+	local start_col = start_pos[3]
+	local end_row = end_pos[2]
+	local end_col = end_pos[3]
+
+	if start_row > end_row or (start_row == end_row and start_col > end_col) then
+		start_row, end_row = end_row, start_row
+		start_col, end_col = end_col, start_col
+	end
+
+	local selection
+	if mode == "V" then
+		selection = vim.api.nvim_buf_get_lines(0, start_row - 1, end_row, false)
+	else
+		selection = vim.api.nvim_buf_get_text(0, start_row - 1, start_col - 1, end_row - 1, end_col, {})
+	end
+
+	local search_term = table.concat(selection, " ")
+	vim.api.nvim_feedkeys(vim.keycode("<Esc>"), "nx", false)
+	vim.schedule(function()
+		followPage(search_term)
+	end)
 end
 
 local function backToPrevPage()
@@ -193,7 +244,9 @@ M.open_cppman_for = function(word_to_search)
 	vim.keymap.set("n", "q", ":q!<cr>", { silent = true, buffer = true })
 
 	vim.keymap.set("n", "K", loadNewPage, { silent = true, buffer = true })
+	vim.keymap.set("x", "K", loadVisualSelection, { silent = true, buffer = true })
 	vim.keymap.set("n", "<C-]>", loadNewPage, { silent = true, buffer = true })
+	vim.keymap.set("x", "<C-]>", loadVisualSelection, { silent = true, buffer = true })
 	vim.keymap.set("n", "<2-LeftMouse>", loadNewPage, { silent = true, buffer = true })
 
 	vim.keymap.set("n", "<C-T>", backToPrevPage, { silent = true, buffer = true })

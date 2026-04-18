@@ -99,6 +99,10 @@ In normal mode, the manual uses the same navigation as standalone `cppman`:
 - **K**, **<C-]>**, and **<2-LeftMouse>** follow the word under the cursor
 - **<C-T>** and **<RightMouse>** go back to the previous page
 
+In visual mode inside the popup:
+
+- **K** and **<C-]>** follow the selected text
+
 ==============================================================================
 2. Links                                                        *cppman-links*
 
