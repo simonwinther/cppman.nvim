@@ -121,6 +121,10 @@ In visual mode inside the viewer:
 
 * **K**, **\<C-]\>** - follow the selected text
 
+## Repo analytics
+
+![Alt](https://repobeats.axiom.co/api/embed/5df93c3d0004a00ff8f890d50b098386ed326e26.svg "Repobeats analytics image")
+
 ## Health check
 
 Run `:checkhealth cppman` to verify that `cppman`, `sqlite3`, `snacks.nvim`, and a valid `index.db` are all present.
