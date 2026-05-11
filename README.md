@@ -58,8 +58,8 @@ Use `version = "*"` to follow the latest stable release.
 Run `:CPPMan` to open the keyword search picker, or pass a term directly: `:CPPMan std::array`
 
 With the lazy.nvim spec above, the plugin also loads on these keymaps:
-* `<leader>cu` - open CPPMan for the word under the cursor
-* `<leader>ck` - open the CPPMan search picker
+* `<leader>cu` - open CPPMan for the word under the cursor.
+* `<leader>ck` - open the CPPMan search picker.
 
 ## Configuration
 
