@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.0.7](https://github.com/simonwinther/cppman.nvim/compare/v0.0.6...v0.0.7) (2026-05-11)
+
+
+### Features
+
+* add cppman.nvim plugin with popup UI, syntax, and docs ([b93a4c2](https://github.com/simonwinther/cppman.nvim/commit/b93a4c2acdd0afa72a87e20ffcec81d29d8f2df7))
+* **cppman:** follow visual selection links with K and &lt;C-]&gt; ([5a1f4bf](https://github.com/simonwinther/cppman.nvim/commit/5a1f4bfe7dba37af34ecd9e73076281ba71f7bf4))
+* **cppman:** rebuild search and page rendering pipeline ([0ff3829](https://github.com/simonwinther/cppman.nvim/commit/0ff38294c46d13592ad36fcb813fc3c4dabb509c))
+* **docs:** update README and documentation for keymap customization ([c1a206b](https://github.com/simonwinther/cppman.nvim/commit/c1a206b117e4d92e55bf650d7f194b57c59b1f4e))
+* **docs:** update README with punctuation for keymap descriptions ([64903bc](https://github.com/simonwinther/cppman.nvim/commit/64903bc495c7e6082a6b82f284639f88dabe712e))
+* **input:** enhance search popup styling and prompt highlights ([3e8ccda](https://github.com/simonwinther/cppman.nvim/commit/3e8ccda89bdd4c1ce93ec884821dd7b36723ee99))
+* **keymaps:** change defaults to &lt;leader&gt;cu and &lt;leader&gt;ck ([535c0f1](https://github.com/simonwinther/cppman.nvim/commit/535c0f1b15aa4a372e7d8b41c58df6104e66f196))
+* **viewer:** add TOC section jumps and forward nav with cursor restore ([d140caf](https://github.com/simonwinther/cppman.nvim/commit/d140caf529909cffb7e7a7f371524eed9ad401b4))
+
+
+### Bug Fixes
+
+* **index:** add aliases for fixed-width integer cppreference symbols ([f2d35fc](https://github.com/simonwinther/cppman.nvim/commit/f2d35fc895960859ce37d2d8ce2144c134178d55))
+* **index:** map pages to preferred keywords for opens and history ([e5c3edd](https://github.com/simonwinther/cppman.nvim/commit/e5c3eddb8e02ee7991197412c432e47930c97d54))
+* **keymaps:** shorten mapping descriptions for which-key labels ([69dc9d1](https://github.com/simonwinther/cppman.nvim/commit/69dc9d1680cb2b5ae05d509b8e6d5dc038650286))
+* **viewer:** pass explicit config to uncached cppman renders ([d10fe52](https://github.com/simonwinther/cppman.nvim/commit/d10fe52a98eae9d0ea5f818096a2efbc33130f2d))
+
 ## [0.0.6](https://github.com/simonwinther/cppman.nvim/compare/v0.0.5...v0.0.6) (2026-05-11)
 
 
