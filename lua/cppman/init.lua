@@ -12,18 +12,6 @@ function M.setup(opts)
 			M.open_for(term)
 		end
 	end, { nargs = "?" })
-
-	local keymaps = config.options.keymaps
-
-	if keymaps.open_under_cursor then
-		vim.keymap.set("n", keymaps.open_under_cursor, function()
-			M.open_for(vim.fn.expand("<cword>"))
-		end, { silent = true, desc = "[C++] open under cursor" })
-	end
-
-	if keymaps.search then
-		vim.keymap.set("n", keymaps.search, M.search, { silent = true, desc = "[C++] keyword search" })
-	end
 end
 
 function M.search(opts)

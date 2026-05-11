@@ -1,10 +1,6 @@
 local M = {}
 
 M.defaults = {
-	keymaps = {
-		open_under_cursor = "<leader>cu",
-		search = "<leader>ck",
-	},
 	source = "both",
 	index = {
 		db_path = nil,

@@ -29,7 +29,23 @@ Use `version = "*"` to follow the latest stable release.
 {
   "simonwinther/cppman.nvim",
   version = "*",
-  event = "VeryLazy",
+  cmd = "CPPMan",
+  keys = {
+    {
+      "<leader>cu",
+      function()
+        require("cppman").open_for(vim.fn.expand("<cword>"))
+      end,
+      desc = "[C++] open under cursor",
+    },
+    {
+      "<leader>ck",
+      function()
+        require("cppman").search()
+      end,
+      desc = "[C++] keyword search",
+    },
+  },
   dependencies = {
     "folke/snacks.nvim",
   },
@@ -41,7 +57,7 @@ Use `version = "*"` to follow the latest stable release.
 
 Run `:CPPMan` to open the keyword search picker, or pass a term directly: `:CPPMan std::array`
 
-The default keymaps are:
+With the lazy.nvim spec above, the plugin also loads on these keymaps:
 * `<leader>cu` - open CPPMan for the word under the cursor
 * `<leader>ck` - open the CPPMan search picker
 
@@ -51,10 +67,6 @@ All options with their defaults:
 
 ```lua
 require("cppman").setup({
-  keymaps = {
-    open_under_cursor = "<leader>cu",
-    search = "<leader>ck",
-  },
   -- Documentation source: "both", "cppreference.com", or "cplusplus.com"
   source = "both",
   index = {
@@ -73,20 +85,34 @@ require("cppman").setup({
 })
 ```
 
-### Overriding keymaps
+### Customizing keymaps
+
+Keymaps live in your lazy.nvim spec instead of `setup()` so they can trigger
+lazy loading:
 
 ```lua
 {
   "simonwinther/cppman.nvim",
   version = "*",
-  event = "VeryLazy",
-  dependencies = { "folke/snacks.nvim" },
-  opts = {
-    keymaps = {
-      open_under_cursor = "<leader>mu",
-      search = "<leader>mk",
+  cmd = "CPPMan",
+  keys = {
+    {
+      "<leader>mu",
+      function()
+        require("cppman").open_for(vim.fn.expand("<cword>"))
+      end,
+      desc = "[C++] open under cursor",
+    },
+    {
+      "<leader>mk",
+      function()
+        require("cppman").search()
+      end,
+      desc = "[C++] keyword search",
     },
   },
+  dependencies = { "folke/snacks.nvim" },
+  opts = {},
 }
 ```
 
