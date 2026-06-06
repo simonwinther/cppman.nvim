@@ -1,10 +1,17 @@
 vim.opt.runtimepath:append(vim.fn.getcwd())
 vim.opt.runtimepath:append(vim.fn.getcwd() .. "/.tests/deps/snacks.nvim")
+vim.opt.runtimepath:append(vim.fn.getcwd() .. "/.tests/deps/fzf-lua")
 
 local ok, cppman = pcall(require, "cppman")
 assert(ok, "failed to require cppman: " .. tostring(cppman))
 
-local setup_ok, setup_err = pcall(cppman.setup, {})
+local requested_provider = vim.env.CPPMAN_PICKER_PROVIDER
+local setup_opts = {}
+if requested_provider and requested_provider ~= "" then
+	setup_opts.picker = { provider = requested_provider }
+end
+
+local setup_ok, setup_err = pcall(cppman.setup, setup_opts)
 assert(setup_ok, "setup failed: " .. tostring(setup_err))
 
 assert(vim.fn.exists(":CPPMan") == 2, "CPPMan command was not created")
@@ -20,9 +27,77 @@ assert(history_ok, "failed to require cppman.history: " .. tostring(history))
 local index_ok, index = pcall(require, "cppman.index")
 assert(index_ok, "failed to require cppman.index")
 
-for _, mod in ipairs({ "cppman.render", "cppman.sections", "cppman.viewer", "cppman.picker", "cppman.health" }) do
+for _, mod in ipairs({
+	"cppman.render",
+	"cppman.sections",
+	"cppman.viewer",
+	"cppman.picker",
+	"cppman.pickers.common",
+	"cppman.pickers.snacks",
+	"cppman.pickers.fzf_lua",
+	"cppman.health",
+}) do
 	local rok, rerr = pcall(require, mod)
 	assert(rok, "failed to require " .. mod .. ": " .. tostring(rerr))
+end
+
+local picker = require("cppman.picker")
+assert(picker.normalize_provider("fzf_lua") == "fzf-lua", "fzf_lua provider alias should normalize")
+assert(picker.normalize_provider("snacks.nvim") == "snacks", "snacks.nvim provider alias should normalize")
+
+local bad_provider = picker.provider_status("unknown")
+assert(not bad_provider.available, "unknown picker provider should not be available")
+
+if requested_provider and requested_provider ~= "" then
+	local normalized = picker.normalize_provider(requested_provider)
+	local resolved, resolve_err = picker.resolve_provider(requested_provider)
+	if normalized == "auto" then
+		assert(resolved ~= nil, "auto picker provider did not resolve: " .. tostring(resolve_err))
+	else
+		assert(resolved == normalized, "requested picker provider did not resolve: " .. tostring(resolve_err))
+	end
+end
+
+do
+	local loaded_fzf_lua = package.loaded["fzf-lua"]
+	local preload_fzf_lua = package.preload["fzf-lua"]
+	local captured
+	package.loaded["fzf-lua"] = {
+		fzf_exec = function(entries, opts)
+			captured = { entries = entries, opts = opts }
+		end,
+		get_last_query = function()
+			return "vec"
+		end,
+	}
+	package.preload["fzf-lua"] = nil
+
+	local selected
+	require("cppman.pickers.fzf_lua").open({
+		source = "both",
+		items = {
+			{
+				text = "std::vector",
+				page = "std::vector",
+				query = "std::vector",
+				source = "cppreference.com",
+			},
+		},
+		on_select = function(item, pattern)
+			selected = { item = item, pattern = pattern }
+		end,
+	})
+
+	assert(captured, "fzf-lua backend did not call fzf_exec")
+	assert(captured.opts.fzf_opts["--nth"] == nil, "fzf-lua backend must not restrict matching with --nth")
+	assert(captured.opts.fzf_opts["--delimiter"] == nil, "fzf-lua backend must not set a custom delimiter")
+	assert(captured.opts.fzf_opts["--with-nth"] == "2..", "fzf-lua backend should hide the internal id column")
+	captured.opts.actions.default({ captured.entries[1] })
+	assert(selected and selected.item.text == "std::vector", "fzf-lua selection did not map back to the index item")
+	assert(selected.pattern == "vec", "fzf-lua selection did not preserve the last query")
+
+	package.loaded["fzf-lua"] = loaded_fzf_lua
+	package.preload["fzf-lua"] = preload_fzf_lua
 end
 
 -- Source whitelist guards against arbitrary input.

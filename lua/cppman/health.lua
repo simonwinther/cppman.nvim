@@ -23,19 +23,43 @@ function M.check()
 		h.error("sqlite3 not found", { "Install sqlite3 (e.g. apt install sqlite3, brew install sqlite)" })
 	end
 
-	local snacks_ok, Snacks = pcall(require, "snacks")
-	if snacks_ok and Snacks.picker then
-		h.ok("snacks.nvim with picker found")
-	elseif snacks_ok then
-		h.error(
-			"snacks.nvim found but picker module unavailable",
-			{ "Upgrade snacks.nvim to a version with picker support" }
-		)
+	local config = require("cppman.config")
+	local picker = require("cppman.picker")
+	local picker_opts = config.options.picker or {}
+	local provider = picker.normalize_provider(picker_opts.provider or "auto")
+	local statuses = picker.provider_statuses()
+
+	if provider == "auto" then
+		local active = picker.resolve_provider(provider)
+		if active then
+			h.ok("picker provider resolved to " .. statuses[active].label)
+		else
+			h.error("no picker backend found", { "Install folke/snacks.nvim or ibhagwan/fzf-lua" })
+		end
+		for _, status in pairs(statuses) do
+			if status.available then
+				h.info(status.label .. " available")
+			else
+				h.info(status.label .. " unavailable: " .. (status.error or "missing dependency"))
+			end
+		end
 	else
-		h.error("snacks.nvim not found", { "Add folke/snacks.nvim as a dependency" })
+		local status = picker.provider_status(provider)
+		if status.available then
+			h.ok("picker provider found: " .. status.label)
+		else
+			h.error(
+				"picker provider unavailable: " .. status.label,
+				{ status.error or "Install the configured picker backend" }
+			)
+		end
 	end
 
-	local config = require("cppman.config")
+	local fzf_status = statuses["fzf-lua"]
+	if fzf_status and fzf_status.available and vim.fn.executable("fzf") == 0 and not picker_opts.fzf_lua.fzf_bin then
+		h.warn("fzf executable not found", { "Install fzf, or configure fzf-lua to use another fzf-compatible binary" })
+	end
+
 	local index = require("cppman.index")
 	local source = config.options.source or "both"
 	local db = index.resolve_db(index.get_sources(source)[1])

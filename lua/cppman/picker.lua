@@ -1,7 +1,18 @@
 local M = {}
 
 local uv = vim.uv or vim.loop
-local NBSP = vim.fn.nr2char(160)
+
+local AUTO_ORDER = { "snacks", "fzf-lua" }
+local PROVIDERS = {
+	snacks = {
+		label = "snacks.nvim",
+		module = "cppman.pickers.snacks",
+	},
+	["fzf-lua"] = {
+		label = "fzf-lua",
+		module = "cppman.pickers.fzf_lua",
+	},
+}
 
 M.last_pattern = ""
 
@@ -9,28 +20,118 @@ local function now_ms()
 	return uv.hrtime() / 1e6
 end
 
-local function format_timing(elapsed)
-	if elapsed < 10 then
-		return string.format("%.1fms", elapsed)
-	end
-	return string.format("%dms", math.floor(elapsed + 0.5))
+local function picker_options()
+	local config = require("cppman.config")
+	return config.options.picker or {}
 end
 
-local function source_badge(source)
-	if source == "cppreference.com" then
-		return " [ref]"
+local function load_backend(provider)
+	local spec = PROVIDERS[provider]
+	if not spec then
+		return nil, "unknown picker provider: " .. tostring(provider)
 	end
-	if source == "cplusplus.com" then
-		return " [c++]"
+
+	local ok, backend = pcall(require, spec.module)
+	if not ok then
+		return nil, backend
 	end
-	return ""
+	return backend
+end
+
+function M.normalize_provider(provider)
+	provider = provider or "auto"
+	if provider == "fzf_lua" then
+		return "fzf-lua"
+	end
+	if provider == "snacks.nvim" then
+		return "snacks"
+	end
+	return provider
+end
+
+function M.provider_status(provider)
+	provider = M.normalize_provider(provider)
+	local spec = PROVIDERS[provider]
+	if not spec then
+		return {
+			name = provider,
+			label = tostring(provider),
+			available = false,
+			error = "expected one of: auto, snacks, fzf-lua",
+		}
+	end
+
+	local backend, load_err = load_backend(provider)
+	if not backend then
+		return {
+			name = provider,
+			label = spec.label,
+			available = false,
+			error = tostring(load_err),
+		}
+	end
+
+	local ok, available, err = pcall(backend.is_available)
+	if not ok then
+		return {
+			name = provider,
+			label = spec.label,
+			available = false,
+			error = tostring(available),
+		}
+	end
+
+	return {
+		name = provider,
+		label = spec.label,
+		available = available == true,
+		error = err,
+	}
+end
+
+function M.provider_statuses()
+	local statuses = {}
+	for _, provider in ipairs(AUTO_ORDER) do
+		statuses[provider] = M.provider_status(provider)
+	end
+	return statuses
+end
+
+function M.resolve_provider(provider)
+	provider = M.normalize_provider(provider or picker_options().provider or "auto")
+
+	if provider == "auto" then
+		for _, candidate in ipairs(AUTO_ORDER) do
+			local status = M.provider_status(candidate)
+			if status.available then
+				return candidate
+			end
+		end
+		return nil, "[cppman] no picker backend found (install folke/snacks.nvim or ibhagwan/fzf-lua)"
+	end
+
+	if not PROVIDERS[provider] then
+		return nil,
+			"[cppman] invalid picker provider: " .. tostring(provider) .. " (expected one of: auto, snacks, fzf-lua)"
+	end
+
+	local status = M.provider_status(provider)
+	if status.available then
+		return provider
+	end
+
+	return nil,
+		"[cppman] picker provider " .. status.label .. " unavailable: " .. (status.error or "missing dependency")
 end
 
 function M.open(opts)
 	opts = opts or {}
-	local on_select = opts.on_select
-	local on_back = opts.on_back
-	local pattern = opts.search or ""
+
+	local provider, provider_err = M.resolve_provider()
+	if not provider then
+		vim.notify(provider_err, vim.log.levels.ERROR)
+		return
+	end
 
 	local config = require("cppman.config")
 	local source = opts.source or config.options.source or "both"
@@ -40,92 +141,20 @@ function M.open(opts)
 	local items = index.load(source)
 	local load_ms = now_ms() - t0
 	if #items == 0 then
-		vim.notify("[cppman] no items loaded — check cppman and sqlite3 installation", vim.log.levels.ERROR)
+		vim.notify("[cppman] no items loaded - check cppman and sqlite3 installation", vim.log.levels.ERROR)
 		return
 	end
 
-	local ok, Snacks = pcall(require, "snacks")
-	if not ok or not Snacks.picker then
-		vim.notify("[cppman] snacks.nvim with picker support is required", vim.log.levels.ERROR)
-		return
-	end
-
-	-- snacks.picker.Text is {[1]: string, [2]: string?} — positional, not named fields
-	local actions = {}
-	local extra_keys = {}
-	if on_back then
-		actions.cppman_go_back = function(picker)
-			picker:close()
-			vim.schedule(on_back)
-		end
-		extra_keys = {
-			input = { keys = { ["<C-T>"] = { "cppman_go_back", mode = { "i", "n" } } } },
-			list = { keys = { ["<C-T>"] = { "cppman_go_back", mode = { "n" } } } },
-		}
-	end
-
-	local title = {
-		{ "keyword", "Title" },
-		{ NBSP .. "search • " .. format_timing(load_ms), "Comment" },
-		{ " ", "FloatTitle" },
-	}
-	local footer = {
-		{ " enter ", "SpecialChar" },
-		{ "to search ", "Comment" },
-	}
-	if on_back then
-		footer[#footer + 1] = { " C-T ", "SpecialChar" }
-		footer[#footer + 1] = { "back ", "Comment" }
-	end
-
-	Snacks.picker.pick({
-		source = "cppman",
+	local backend = assert(load_backend(provider))
+	backend.open(vim.tbl_extend("force", opts, {
+		provider = provider,
+		source = source,
 		items = items,
-		format = function(item)
-			if source == "both" then
-				return {
-					{ item.text, "Normal" },
-					{ source_badge(item.source), "Comment" },
-				}
-			end
-			return { { item.text, "Normal" } }
+		load_ms = load_ms,
+		set_last_pattern = function(pattern)
+			M.last_pattern = pattern or ""
 		end,
-		confirm = function(picker, item)
-			if item then
-				-- snacks.picker has no public accessor for the live input; reach into
-				-- internals defensively so a snacks rename only loses the breadcrumb.
-				local ok, current = pcall(function()
-					return picker.input.filter.pattern
-				end)
-				M.last_pattern = (ok and current) or pattern
-			end
-			picker:close()
-			if item and on_select then
-				local used_pattern = M.last_pattern
-				on_select(item, used_pattern)
-			end
-		end,
-		actions = actions,
-		win = extra_keys,
-		pattern = pattern,
-		layout = {
-			layout = {
-				box = "vertical",
-				backdrop = false,
-				border = "rounded",
-				title = title,
-				title_pos = "center",
-				footer = footer,
-				footer_pos = "right",
-				width = config.options.picker.width or 0.4,
-				min_width = 40,
-				height = config.options.picker.height or 0.4,
-				min_height = 10,
-				{ win = "input", height = 1, border = "none" },
-				{ win = "list", border = "none" },
-			},
-		},
-	})
+	}))
 end
 
 return M
