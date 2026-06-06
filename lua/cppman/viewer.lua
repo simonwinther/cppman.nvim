@@ -1,6 +1,6 @@
 local M = {}
 
-local uv = vim.uv or vim.loop
+local util = require("cppman.util")
 
 local _config, _history, _index, _render
 local function config()
@@ -32,10 +32,6 @@ local _current_sections = nil
 local go_back
 local go_forward
 local open_picker_for_back
-
-local function now_ms()
-	return uv.hrtime() / 1e6
-end
 
 local function is_valid()
 	return state.win and vim.api.nvim_win_is_valid(state.win) and state.buf and vim.api.nvim_buf_is_valid(state.buf)
@@ -227,25 +223,15 @@ local function jump_to_toc_section()
 	return true
 end
 
-local function format_timing_value(elapsed)
-	if elapsed == nil then
-		return "cached"
-	end
-	if elapsed < 10 then
-		return string.format("%.1fms", elapsed)
-	end
-	return string.format("%dms", math.floor(elapsed + 0.5))
-end
-
 local function format_timing_breakdown(timing)
 	if timing == nil then
 		return "cached"
 	end
 	return string.format(
 		"cppman: %s | our: %s | total: %s",
-		format_timing_value(timing.cppman_ms),
-		format_timing_value(timing.our_ms),
-		format_timing_value(timing.total_ms)
+		util.format_ms(timing.cppman_ms),
+		util.format_ms(timing.our_ms),
+		util.format_ms(timing.total_ms)
 	)
 end
 
@@ -267,7 +253,7 @@ local function load_page(item, lines, timing, cursor)
 		end
 	end
 
-	local ui_t0 = now_ms()
+	local ui_t0 = util.now_ms()
 	local buf = state.buf
 	vim.bo[buf].ro = false
 	vim.bo[buf].ma = true
@@ -292,7 +278,7 @@ local function load_page(item, lines, timing, cursor)
 	_current_page_label = extract_page_label(item.page, lines)
 	_current_sections = sections_mod.build(lines)
 	if timing then
-		local ui_ms = now_ms() - ui_t0
+		local ui_ms = util.now_ms() - ui_t0
 		timing.our_ms = timing.our_ms + ui_ms
 		timing.total_ms = timing.total_ms + ui_ms
 	end

@@ -1,6 +1,6 @@
 local M = {}
 
-local uv = vim.uv or vim.loop
+local util = require("cppman.util")
 
 local AUTO_ORDER = { "snacks", "fzf-lua" }
 local PROVIDERS = {
@@ -13,10 +13,6 @@ local PROVIDERS = {
 		module = "cppman.pickers.fzf_lua",
 	},
 }
-
-local function now_ms()
-	return uv.hrtime() / 1e6
-end
 
 local function picker_options()
 	local config = require("cppman.config")
@@ -135,9 +131,9 @@ function M.open(opts)
 	local source = opts.source or config.options.source or "both"
 
 	local index = require("cppman.index")
-	local t0 = now_ms()
+	local t0 = util.now_ms()
 	local items = index.load(source)
-	local load_ms = now_ms() - t0
+	local load_ms = util.now_ms() - t0
 	if #items == 0 then
 		vim.notify("[cppman] no items loaded - check cppman and sqlite3 installation", vim.log.levels.ERROR)
 		return

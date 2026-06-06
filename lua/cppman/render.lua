@@ -4,7 +4,7 @@
 -- never re-spawn cppman. Owns no window state — viewer.lua handles UI.
 local M = {}
 
-local uv = vim.uv or vim.loop
+local util = require("cppman.util")
 local index = require("cppman.index")
 
 local plugin_cache_dir = vim.fn.stdpath("cache") .. "/cppman_plugin"
@@ -40,10 +40,6 @@ page_cache.max = PAGE_CACHE_MAX
 local resolve_cache = new_lru()
 resolve_cache.max = RESOLVE_CACHE_MAX
 local _pager_script = nil
-
-local function now_ms()
-	return uv.hrtime() / 1e6
-end
 
 local function get_source(source)
 	return index.get_sources(source)[1]
@@ -202,7 +198,7 @@ function M.render_page(page, query, width, source)
 		return cached or nil, nil
 	end
 
-	local t0 = now_ms()
+	local t0 = util.now_ms()
 
 	local stdout = nil
 	local page_path = get_cached_page_path(page, source)
@@ -215,16 +211,16 @@ function M.render_page(page, query, width, source)
 		if res.code ~= 0 or not res.stdout or res.stdout == "" then
 			lru_set(page_cache, key, false)
 			return nil, {
-				cppman_ms = now_ms() - t0,
+				cppman_ms = util.now_ms() - t0,
 				our_ms = 0,
-				total_ms = now_ms() - t0,
+				total_ms = util.now_ms() - t0,
 			}
 		end
 		stdout = res.stdout
 	end
 
-	local cppman_ms = now_ms() - t0
-	local internal_t0 = now_ms()
+	local cppman_ms = util.now_ms() - t0
+	local internal_t0 = util.now_ms()
 
 	local lines = vim.split(stdout, "\n", { plain = true })
 	if lines[#lines] == "" then
@@ -237,17 +233,17 @@ function M.render_page(page, query, width, source)
 		lru_set(page_cache, key, false)
 		return nil, {
 			cppman_ms = cppman_ms,
-			our_ms = now_ms() - internal_t0,
-			total_ms = now_ms() - t0,
+			our_ms = util.now_ms() - internal_t0,
+			total_ms = util.now_ms() - t0,
 		}
 	end
 
-	local our_ms = now_ms() - internal_t0
+	local our_ms = util.now_ms() - internal_t0
 	lru_set(page_cache, key, lines)
 	return lines, {
 		cppman_ms = cppman_ms,
 		our_ms = our_ms,
-		total_ms = now_ms() - t0,
+		total_ms = util.now_ms() - t0,
 	}
 end
 

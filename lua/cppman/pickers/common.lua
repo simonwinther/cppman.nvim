@@ -1,13 +1,8 @@
 local M = {}
 
-local NBSP = vim.fn.nr2char(160)
+local util = require("cppman.util")
 
-function M.format_timing(elapsed)
-	if elapsed < 10 then
-		return string.format("%.1fms", elapsed)
-	end
-	return string.format("%dms", math.floor(elapsed + 0.5))
-end
+local NBSP = vim.fn.nr2char(160)
 
 function M.source_badge(source)
 	if source == "cppreference.com" then
@@ -29,7 +24,7 @@ end
 function M.search_title(load_ms)
 	return {
 		{ "keyword", "Title" },
-		{ NBSP .. "search • " .. M.format_timing(load_ms), "Comment" },
+		{ NBSP .. "search • " .. util.format_ms(load_ms), "Comment" },
 		{ " ", "FloatTitle" },
 	}
 end

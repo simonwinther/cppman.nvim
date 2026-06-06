@@ -1,6 +1,7 @@
 local M = {}
 
 local common = require("cppman.pickers.common")
+local util = require("cppman.util")
 
 function M.is_available()
 	local ok, FzfLua = pcall(require, "fzf-lua")
@@ -96,7 +97,7 @@ function M.open(opts)
 		winopts = {
 			backdrop = 100,
 			border = "rounded",
-			title = " keyword search - " .. common.format_timing(opts.load_ms or 0) .. " ",
+			title = " keyword search - " .. util.format_ms(opts.load_ms or 0) .. " ",
 			title_pos = "center",
 			width = picker_opts.width or 0.4,
 			height = picker_opts.height or 0.4,
