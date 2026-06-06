@@ -20,7 +20,7 @@ local function render()
 	return _render
 end
 
-local state = { win = nil, buf = nil }
+local state = { win = nil, buf = nil, maximized = false }
 local _current_page_name = nil
 local _current_page_query = nil
 local _current_page_source = nil
@@ -35,6 +35,23 @@ local open_picker_for_back
 
 local function is_valid()
 	return state.win and vim.api.nvim_win_is_valid(state.win) and state.buf and vim.api.nvim_buf_is_valid(state.buf)
+end
+
+-- The double border occupies one cell on each side; keep the bordered float
+-- inside the editor so a full-size window never overflows.
+local BORDER_PADDING = 2
+
+-- Float geometry as (width, height, row, col). When `maximized`, fills the
+-- editor; otherwise uses the configured viewer width/height ratios.
+local function compute_geometry(maximized)
+	local ui = vim.api.nvim_list_uis()[1]
+	local w = maximized and 1.0 or (config().options.viewer.width or 0.8)
+	local h = maximized and 1.0 or (config().options.viewer.height or 0.6)
+	local win_w = math.min(math.floor(ui.width * w), ui.width - BORDER_PADDING)
+	local win_h = math.min(math.floor(ui.height * h), ui.height - BORDER_PADDING)
+	local row = math.floor((ui.height - win_h) / 2)
+	local col = math.floor((ui.width - win_w) / 2)
+	return win_w, win_h, row, col
 end
 
 -- Snapshot of the current page suitable for pushing onto a history stack.
@@ -497,6 +514,45 @@ local function close()
 	end
 end
 
+-- Toggle the viewer between its configured size and a full-editor view.
+-- No-op when the configured view already fills the screen.
+local function toggle_maximize()
+	if not is_valid() then
+		return
+	end
+
+	local norm_w, norm_h = compute_geometry(false)
+	local max_w, max_h = compute_geometry(true)
+	if norm_w >= max_w and norm_h >= max_h then
+		return
+	end
+
+	state.maximized = not state.maximized
+	local win_w, win_h, row, col = compute_geometry(state.maximized)
+
+	local ok, cfg = pcall(vim.api.nvim_win_get_config, state.win)
+	if not ok then
+		return
+	end
+	cfg.width = win_w
+	cfg.height = win_h
+	cfg.row = row
+	cfg.col = col
+	pcall(vim.api.nvim_win_set_config, state.win, cfg)
+
+	-- Re-render so the page re-wraps to the new width (also refreshes the footer).
+	if _current_page_name then
+		local cur_ok, cursor = pcall(vim.api.nvim_win_get_cursor, state.win)
+		load_page({
+			page = _current_page_name,
+			query = _current_page_query,
+			source = _current_page_source,
+		}, nil, nil, cur_ok and cursor or nil)
+	else
+		set_footer(_current_page_label, _current_timing_text)
+	end
+end
+
 local function setup_keymaps(buf)
 	local function map(mode, lhs, rhs)
 		vim.keymap.set(mode, lhs, rhs, { silent = true, buffer = buf })
@@ -535,6 +591,7 @@ local function setup_keymaps(buf)
 	map("n", "<C-T>", go_back)
 	map("n", "<RightMouse>", go_back)
 	map("n", "<Tab>", go_forward)
+	map("n", "<M-m>", toggle_maximize)
 end
 
 function M.reset()
@@ -583,14 +640,8 @@ function M.open(opts)
 	local buf = vim.api.nvim_create_buf(false, true)
 	vim.bo[buf].bufhidden = "wipe"
 
-	local ui = vim.api.nvim_list_uis()[1]
-
-	local w = config().options.viewer.width or 0.8
-	local h = config().options.viewer.height or 0.6
-	local win_w = math.floor(ui.width * w)
-	local win_h = math.floor(ui.height * h)
-	local row = math.floor((ui.height - win_h) / 2)
-	local col = math.floor((ui.width - win_w) / 2)
+	state.maximized = false
+	local win_w, win_h, row, col = compute_geometry(false)
 
 	local win = vim.api.nvim_open_win(buf, true, {
 		relative = "editor",
@@ -628,6 +679,7 @@ function M.open(opts)
 			_current_sections = nil
 			state.win = nil
 			state.buf = nil
+			state.maximized = false
 		end,
 	})
 
