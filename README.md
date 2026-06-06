@@ -18,12 +18,13 @@ not need to call the `cppman` command for every query.
 
 ## Requirements
 
-- Neovim 0.10+
-- [cppman](https://github.com/aitjcize/cppman)
-- `sqlite3`
-- One picker backend:
-  - [ibhagwan/fzf-lua](https://github.com/ibhagwan/fzf-lua) and the `fzf` binary
-  - [folke/snacks.nvim](https://github.com/folke/snacks.nvim)
+* Neovim 0.10+
+* [cppman](https://github.com/aitjcize/cppman)
+* `sqlite3`
+* One picker backend:
+
+  * [ibhagwan/fzf-lua](https://github.com/ibhagwan/fzf-lua) and the `fzf` binary
+  * [folke/snacks.nvim](https://github.com/folke/snacks.nvim)
 
 Install the external tools however you normally do:
 
@@ -118,15 +119,15 @@ still works: `j`, `k`, `<C-d>`, `<C-u>`, `/`, `n`, and so on.
 
 cppman.nvim adds a few mappings on top:
 
-- `K`, `<C-]>`, or double-click: follow the word under the cursor
-- `K` on a table-of-contents entry: jump to that section
-- `<C-T>` or right-click: go back to the previous cppman page/search
-- `<Tab>`: go forward again after going back
-- `q`: close the viewer
+* `K`, `<C-]>`, or double-click: follow the word under the cursor
+* `K` on a table-of-contents entry: jump to that section
+* `<C-T>` or right-click: go back to the previous cppman page/search
+* `<Tab>`: go forward again after going back
+* `q`: close the viewer
 
 Visual mode works too:
 
-- Select text, then press `K` or `<C-]>` to open docs for the selection
+* Select text, then press `K` or `<C-]>` to open docs for the selection
 
 ## Configuration
 
