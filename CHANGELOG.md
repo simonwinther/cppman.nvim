@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.0.8](https://github.com/simonwinther/cppman.nvim/compare/v0.0.7...v0.0.8) (2026-06-06)
+
+
+### Features
+
+* **ci:** add support for multiple picker options in smoke test workflow ([4765a3a](https://github.com/simonwinther/cppman.nvim/commit/4765a3ae2e2e2130222dae5157a2f00218c8b437)), closes [#9](https://github.com/simonwinther/cppman.nvim/issues/9)
+* **viewer:** add &lt;M-m&gt; to toggle a maximized view ([454173f](https://github.com/simonwinther/cppman.nvim/commit/454173f86ff9a081b1ea40083fba4fb8b8718c52))
+* **viewer:** add maximize toggle feature and test file ([6b83db4](https://github.com/simonwinther/cppman.nvim/commit/6b83db4eedecec5e11f93e7f4bc1176c599e831e))
+
+
+### Bug Fixes
+
+* **health:** guard non-table fzf_lua option ([68dd7a6](https://github.com/simonwinther/cppman.nvim/commit/68dd7a62fddb442c185e76f27386416e171058b2))
+* **spawn:** handle missing sqlite3/cppman/python3 gracefully ([c858a3e](https://github.com/simonwinther/cppman.nvim/commit/c858a3e00a359d0adf92a14a645900feb4585700))
+
 ## [0.0.7](https://github.com/simonwinther/cppman.nvim/compare/v0.0.6...v0.0.7) (2026-05-11)
 
 
