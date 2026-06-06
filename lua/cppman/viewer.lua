@@ -456,17 +456,7 @@ local function follow_word(word, fallback_word)
 		history().push(snap)
 		history().forward_clear()
 	end
-	require("cppman.picker").open({
-		search = word,
-		source = source,
-		on_back = go_back,
-		on_select = function(item, used_pattern)
-			history().push({ type = "search", pattern = used_pattern, source = source })
-			history().forward_clear()
-			load_page(item)
-			refocus_viewer()
-		end,
-	})
+	open_picker_for_back(word, source)
 end
 
 local function get_visual_selection()
