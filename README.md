@@ -213,3 +213,7 @@ Run:
 
 It checks Neovim, `cppman`, `sqlite3`, your picker backend, and the resolved
 `index.db`.
+
+## Repo Analytics
+
+![Alt](https://repobeats.axiom.co/api/embed/5df93c3d0004a00ff8f890d50b098386ed326e26.svg "Repobeats analytics image")
