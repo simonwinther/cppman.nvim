@@ -13,6 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         neovim: [stable, nightly]
+        picker: [snacks, fzf-lua]
 
     steps:
       - name: Checkout code
@@ -24,10 +25,18 @@ jobs:
           neovim: true
           version: ${{ matrix.neovim }}
 
-      - name: Install snacks.nvim
+      - name: Install picker dependency
         run: |
           mkdir -p .tests/deps
-          git clone --depth=1 https://github.com/folke/snacks.nvim .tests/deps/snacks.nvim
+          if [ "${{ matrix.picker }}" = "snacks" ]; then
+            git clone --depth=1 https://github.com/folke/snacks.nvim .tests/deps/snacks.nvim
+          else
+            sudo apt-get update
+            sudo apt-get install -y fzf
+            git clone --depth=1 https://github.com/ibhagwan/fzf-lua .tests/deps/fzf-lua
+          fi
 
       - name: Run smoke test
-        run: nvim --headless -u NONE -c "set rtp+=$PWD,$PWD/.tests/deps/snacks.nvim" -l scripts/smoke_test.lua
+        run: nvim --headless -u NONE -l scripts/smoke_test.lua
+        env:
+          CPPMAN_PICKER_PROVIDER: ${{ matrix.picker }}

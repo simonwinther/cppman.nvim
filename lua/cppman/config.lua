@@ -6,8 +6,11 @@ M.defaults = {
 		db_path = nil,
 	},
 	picker = {
+		provider = "auto",
 		width = 0.4,
 		height = 0.4,
+		snacks = {},
+		fzf_lua = {},
 	},
 	viewer = {
 		width = 0.8,
