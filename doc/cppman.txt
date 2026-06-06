@@ -140,6 +140,7 @@ cppman.nvim adds a few mappings on top:
 - `K` on a table-of-contents entry: jump to that section
 - `<C-T>` or right-click: go back to the previous cppman page/search
 - `<Tab>`: go forward again after going back
+- `<M-m>`: toggle between the configured size and a maximized view
 - `q`: close the viewer
 
 Visual mode works too:

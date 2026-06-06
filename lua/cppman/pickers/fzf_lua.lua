@@ -1,6 +1,7 @@
 local M = {}
 
 local common = require("cppman.pickers.common")
+local util = require("cppman.util")
 
 function M.is_available()
 	local ok, FzfLua = pcall(require, "fzf-lua")
@@ -68,9 +69,6 @@ function M.open(opts)
 			end
 
 			local used_pattern = last_query(FzfLua, pattern)
-			if opts.set_last_pattern then
-				opts.set_last_pattern(used_pattern)
-			end
 			if on_select then
 				on_select(item, used_pattern)
 			end
@@ -99,7 +97,7 @@ function M.open(opts)
 		winopts = {
 			backdrop = 100,
 			border = "rounded",
-			title = " keyword search - " .. common.format_timing(opts.load_ms or 0) .. " ",
+			title = " keyword search - " .. util.format_ms(opts.load_ms or 0) .. " ",
 			title_pos = "center",
 			width = picker_opts.width or 0.4,
 			height = picker_opts.height or 0.4,

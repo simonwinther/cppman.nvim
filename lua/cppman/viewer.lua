@@ -1,6 +1,6 @@
 local M = {}
 
-local uv = vim.uv or vim.loop
+local util = require("cppman.util")
 
 local _config, _history, _index, _render
 local function config()
@@ -20,7 +20,7 @@ local function render()
 	return _render
 end
 
-local state = { win = nil, buf = nil }
+local state = { win = nil, buf = nil, maximized = false }
 local _current_page_name = nil
 local _current_page_query = nil
 local _current_page_source = nil
@@ -33,12 +33,25 @@ local go_back
 local go_forward
 local open_picker_for_back
 
-local function now_ms()
-	return uv.hrtime() / 1e6
-end
-
 local function is_valid()
 	return state.win and vim.api.nvim_win_is_valid(state.win) and state.buf and vim.api.nvim_buf_is_valid(state.buf)
+end
+
+-- The double border occupies one cell on each side; keep the bordered float
+-- inside the editor so a full-size window never overflows.
+local BORDER_PADDING = 2
+
+-- Float geometry as (width, height, row, col). When `maximized`, fills the
+-- editor; otherwise uses the configured viewer width/height ratios.
+local function compute_geometry(maximized)
+	local ui = vim.api.nvim_list_uis()[1]
+	local w = maximized and 1.0 or (config().options.viewer.width or 0.8)
+	local h = maximized and 1.0 or (config().options.viewer.height or 0.6)
+	local win_w = math.min(math.floor(ui.width * w), ui.width - BORDER_PADDING)
+	local win_h = math.min(math.floor(ui.height * h), ui.height - BORDER_PADDING)
+	local row = math.floor((ui.height - win_h) / 2)
+	local col = math.floor((ui.width - win_w) / 2)
+	return win_w, win_h, row, col
 end
 
 -- Snapshot of the current page suitable for pushing onto a history stack.
@@ -227,25 +240,15 @@ local function jump_to_toc_section()
 	return true
 end
 
-local function format_timing_value(elapsed)
-	if elapsed == nil then
-		return "cached"
-	end
-	if elapsed < 10 then
-		return string.format("%.1fms", elapsed)
-	end
-	return string.format("%dms", math.floor(elapsed + 0.5))
-end
-
 local function format_timing_breakdown(timing)
 	if timing == nil then
 		return "cached"
 	end
 	return string.format(
 		"cppman: %s | our: %s | total: %s",
-		format_timing_value(timing.cppman_ms),
-		format_timing_value(timing.our_ms),
-		format_timing_value(timing.total_ms)
+		util.format_ms(timing.cppman_ms),
+		util.format_ms(timing.our_ms),
+		util.format_ms(timing.total_ms)
 	)
 end
 
@@ -267,7 +270,7 @@ local function load_page(item, lines, timing, cursor)
 		end
 	end
 
-	local ui_t0 = now_ms()
+	local ui_t0 = util.now_ms()
 	local buf = state.buf
 	vim.bo[buf].ro = false
 	vim.bo[buf].ma = true
@@ -292,7 +295,7 @@ local function load_page(item, lines, timing, cursor)
 	_current_page_label = extract_page_label(item.page, lines)
 	_current_sections = sections_mod.build(lines)
 	if timing then
-		local ui_ms = now_ms() - ui_t0
+		local ui_ms = util.now_ms() - ui_t0
 		timing.our_ms = timing.our_ms + ui_ms
 		timing.total_ms = timing.total_ms + ui_ms
 	end
@@ -470,17 +473,7 @@ local function follow_word(word, fallback_word)
 		history().push(snap)
 		history().forward_clear()
 	end
-	require("cppman.picker").open({
-		search = word,
-		source = source,
-		on_back = go_back,
-		on_select = function(item, used_pattern)
-			history().push({ type = "search", pattern = used_pattern, source = source })
-			history().forward_clear()
-			load_page(item)
-			refocus_viewer()
-		end,
-	})
+	open_picker_for_back(word, source)
 end
 
 local function get_visual_selection()
@@ -518,6 +511,45 @@ end
 local function close()
 	if is_valid() then
 		vim.api.nvim_win_close(state.win, true)
+	end
+end
+
+-- Toggle the viewer between its configured size and a full-editor view.
+-- No-op when the configured view already fills the screen.
+local function toggle_maximize()
+	if not is_valid() then
+		return
+	end
+
+	local norm_w, norm_h = compute_geometry(false)
+	local max_w, max_h = compute_geometry(true)
+	if norm_w >= max_w and norm_h >= max_h then
+		return
+	end
+
+	state.maximized = not state.maximized
+	local win_w, win_h, row, col = compute_geometry(state.maximized)
+
+	local ok, cfg = pcall(vim.api.nvim_win_get_config, state.win)
+	if not ok then
+		return
+	end
+	cfg.width = win_w
+	cfg.height = win_h
+	cfg.row = row
+	cfg.col = col
+	pcall(vim.api.nvim_win_set_config, state.win, cfg)
+
+	-- Re-render so the page re-wraps to the new width (also refreshes the footer).
+	if _current_page_name then
+		local cur_ok, cursor = pcall(vim.api.nvim_win_get_cursor, state.win)
+		load_page({
+			page = _current_page_name,
+			query = _current_page_query,
+			source = _current_page_source,
+		}, nil, nil, cur_ok and cursor or nil)
+	else
+		set_footer(_current_page_label, _current_timing_text)
 	end
 end
 
@@ -559,6 +591,7 @@ local function setup_keymaps(buf)
 	map("n", "<C-T>", go_back)
 	map("n", "<RightMouse>", go_back)
 	map("n", "<Tab>", go_forward)
+	map("n", "<M-m>", toggle_maximize)
 end
 
 function M.reset()
@@ -607,14 +640,8 @@ function M.open(opts)
 	local buf = vim.api.nvim_create_buf(false, true)
 	vim.bo[buf].bufhidden = "wipe"
 
-	local ui = vim.api.nvim_list_uis()[1]
-
-	local w = config().options.viewer.width or 0.8
-	local h = config().options.viewer.height or 0.6
-	local win_w = math.floor(ui.width * w)
-	local win_h = math.floor(ui.height * h)
-	local row = math.floor((ui.height - win_h) / 2)
-	local col = math.floor((ui.width - win_w) / 2)
+	state.maximized = false
+	local win_w, win_h, row, col = compute_geometry(false)
 
 	local win = vim.api.nvim_open_win(buf, true, {
 		relative = "editor",
@@ -652,6 +679,7 @@ function M.open(opts)
 			_current_sections = nil
 			state.win = nil
 			state.buf = nil
+			state.maximized = false
 		end,
 	})
 

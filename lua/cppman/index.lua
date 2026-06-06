@@ -1,18 +1,11 @@
 local M = {}
 
-local uv = vim.uv or vim.loop
 local SOURCE_PRIORITY = { "cppreference.com", "cplusplus.com" }
 local VALID_SOURCES = { ["cppreference.com"] = true, ["cplusplus.com"] = true, ["both"] = true }
 
 local _cache = {}
 local _exact_map = {}
 local _db_path = nil
-
-M.last_load_ms = nil
-
-local function now_ms()
-	return uv.hrtime() / 1e6
-end
 
 local function validate_source(source)
 	if not VALID_SOURCES[source] then
@@ -197,7 +190,12 @@ local function run_sqlite(db_path, query, separator)
 	end
 	args[#args + 1] = db_path
 	args[#args + 1] = query
-	local res = vim.system(args, { text = true }):wait()
+	local ok, res = pcall(function()
+		return vim.system(args, { text = true }):wait()
+	end)
+	if not ok then
+		return nil, "failed to run sqlite3: " .. tostring(res)
+	end
 	if res.code ~= 0 then
 		return nil, (res.stderr ~= "" and res.stderr) or "sqlite3 exited " .. res.code
 	end
@@ -227,12 +225,14 @@ local function cppman_base_dir()
 		return _cppman_base_dir
 	end
 	_cppman_base_dir_resolved = true
-	local res = vim.system(
-		{ "python3", "-c", "import cppman, os; print(os.path.dirname(cppman.__file__))" },
-		{ text = true }
-	)
-		:wait()
-	if res.code == 0 then
+	local ok, res = pcall(function()
+		return vim.system(
+			{ "python3", "-c", "import cppman, os; print(os.path.dirname(cppman.__file__))" },
+			{ text = true }
+		)
+			:wait()
+	end)
+	if ok and res.code == 0 then
 		local base = vim.trim(res.stdout or "")
 		if base ~= "" then
 			_cppman_base_dir = base
@@ -412,11 +412,9 @@ function M.load(source)
 	source = get_source_mode(source)
 
 	if _cache[source] then
-		M.last_load_ms = nil
 		return _cache[source]
 	end
 
-	local t0 = now_ms()
 	if source == "both" then
 		local items = {}
 		local exact_map = {}
@@ -444,7 +442,6 @@ function M.load(source)
 		load_single_source(source)
 	end
 
-	M.last_load_ms = now_ms() - t0
 	return _cache[source] or {}
 end
 
@@ -469,7 +466,6 @@ function M.reset()
 	_cppman_paths = nil
 	_cppman_base_dir = nil
 	_cppman_base_dir_resolved = false
-	M.last_load_ms = nil
 end
 
 return M

@@ -69,9 +69,6 @@ function M.open(opts)
 					return picker.input.filter.pattern
 				end)
 				local used_pattern = (ok_pattern and current) or pattern
-				if opts.set_last_pattern then
-					opts.set_last_pattern(used_pattern)
-				end
 				picker:close()
 				if on_select then
 					on_select(item, used_pattern)
