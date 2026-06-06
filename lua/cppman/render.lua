@@ -84,14 +84,20 @@ local function cppman_args(extra)
 end
 
 local function run_cppman(source, args, stdin)
-	return vim.system(args, {
-		env = {
-			XDG_CACHE_HOME = plugin_cache_dir,
-			XDG_CONFIG_HOME = get_config_dir(get_source(source)),
-		},
-		stdin = stdin,
-		text = true,
-	}):wait()
+	local ok, res = pcall(function()
+		return vim.system(args, {
+			env = {
+				XDG_CACHE_HOME = plugin_cache_dir,
+				XDG_CONFIG_HOME = get_config_dir(get_source(source)),
+			},
+			stdin = stdin,
+			text = true,
+		}):wait()
+	end)
+	if not ok then
+		return { code = -1, stdout = "", stderr = tostring(res) }
+	end
+	return res
 end
 
 local function normalize_page_name(name)
@@ -141,8 +147,10 @@ local function render_cached_page(page_path, width, page)
 	if not pager_script then
 		return nil
 	end
-	local res = vim.system({ pager_script, "pipe", page_path, tostring(width), "", page }, { text = true }):wait()
-	if res.code ~= 0 or not res.stdout or res.stdout == "" then
+	local ok, res = pcall(function()
+		return vim.system({ pager_script, "pipe", page_path, tostring(width), "", page }, { text = true }):wait()
+	end)
+	if not ok or res.code ~= 0 or not res.stdout or res.stdout == "" then
 		return nil
 	end
 	return res.stdout

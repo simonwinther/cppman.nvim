@@ -190,7 +190,12 @@ local function run_sqlite(db_path, query, separator)
 	end
 	args[#args + 1] = db_path
 	args[#args + 1] = query
-	local res = vim.system(args, { text = true }):wait()
+	local ok, res = pcall(function()
+		return vim.system(args, { text = true }):wait()
+	end)
+	if not ok then
+		return nil, "failed to run sqlite3: " .. tostring(res)
+	end
 	if res.code ~= 0 then
 		return nil, (res.stderr ~= "" and res.stderr) or "sqlite3 exited " .. res.code
 	end
@@ -220,12 +225,13 @@ local function cppman_base_dir()
 		return _cppman_base_dir
 	end
 	_cppman_base_dir_resolved = true
-	local res = vim.system(
-		{ "python3", "-c", "import cppman, os; print(os.path.dirname(cppman.__file__))" },
-		{ text = true }
-	)
-		:wait()
-	if res.code == 0 then
+	local ok, res = pcall(function()
+		return vim.system(
+			{ "python3", "-c", "import cppman, os; print(os.path.dirname(cppman.__file__))" },
+			{ text = true }
+		):wait()
+	end)
+	if ok and res.code == 0 then
 		local base = vim.trim(res.stdout or "")
 		if base ~= "" then
 			_cppman_base_dir = base
