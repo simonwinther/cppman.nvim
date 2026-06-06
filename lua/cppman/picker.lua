@@ -14,8 +14,6 @@ local PROVIDERS = {
 	},
 }
 
-M.last_pattern = ""
-
 local function now_ms()
 	return uv.hrtime() / 1e6
 end
@@ -151,9 +149,6 @@ function M.open(opts)
 		source = source,
 		items = items,
 		load_ms = load_ms,
-		set_last_pattern = function(pattern)
-			M.last_pattern = pattern or ""
-		end,
 	}))
 end
 

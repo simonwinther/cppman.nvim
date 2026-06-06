@@ -195,7 +195,6 @@ function M.render_page(page, query, width, source)
 	end
 
 	local t0 = now_ms()
-	local external_t0 = now_ms()
 
 	local stdout = nil
 	local page_path = get_cached_page_path(page, source)
@@ -208,7 +207,7 @@ function M.render_page(page, query, width, source)
 		if res.code ~= 0 or not res.stdout or res.stdout == "" then
 			lru_set(page_cache, key, false)
 			return nil, {
-				cppman_ms = now_ms() - external_t0,
+				cppman_ms = now_ms() - t0,
 				our_ms = 0,
 				total_ms = now_ms() - t0,
 			}
@@ -216,7 +215,7 @@ function M.render_page(page, query, width, source)
 		stdout = res.stdout
 	end
 
-	local cppman_ms = now_ms() - external_t0
+	local cppman_ms = now_ms() - t0
 	local internal_t0 = now_ms()
 
 	local lines = vim.split(stdout, "\n", { plain = true })

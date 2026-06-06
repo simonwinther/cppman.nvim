@@ -1,18 +1,11 @@
 local M = {}
 
-local uv = vim.uv or vim.loop
 local SOURCE_PRIORITY = { "cppreference.com", "cplusplus.com" }
 local VALID_SOURCES = { ["cppreference.com"] = true, ["cplusplus.com"] = true, ["both"] = true }
 
 local _cache = {}
 local _exact_map = {}
 local _db_path = nil
-
-M.last_load_ms = nil
-
-local function now_ms()
-	return uv.hrtime() / 1e6
-end
 
 local function validate_source(source)
 	if not VALID_SOURCES[source] then
@@ -412,11 +405,9 @@ function M.load(source)
 	source = get_source_mode(source)
 
 	if _cache[source] then
-		M.last_load_ms = nil
 		return _cache[source]
 	end
 
-	local t0 = now_ms()
 	if source == "both" then
 		local items = {}
 		local exact_map = {}
@@ -444,7 +435,6 @@ function M.load(source)
 		load_single_source(source)
 	end
 
-	M.last_load_ms = now_ms() - t0
 	return _cache[source] or {}
 end
 
@@ -469,7 +459,6 @@ function M.reset()
 	_cppman_paths = nil
 	_cppman_base_dir = nil
 	_cppman_base_dir_resolved = false
-	M.last_load_ms = nil
 end
 
 return M
