@@ -231,11 +231,12 @@ function M.render_page(page, query, width, source)
 
 	if #lines == 0 then
 		lru_set(page_cache, key, false)
-		return nil, {
-			cppman_ms = cppman_ms,
-			our_ms = util.now_ms() - internal_t0,
-			total_ms = util.now_ms() - t0,
-		}
+		return nil,
+			{
+				cppman_ms = cppman_ms,
+				our_ms = util.now_ms() - internal_t0,
+				total_ms = util.now_ms() - t0,
+			}
 	end
 
 	local our_ms = util.now_ms() - internal_t0

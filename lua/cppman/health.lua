@@ -56,7 +56,12 @@ function M.check()
 	end
 
 	local fzf_status = statuses["fzf-lua"]
-	if fzf_status and fzf_status.available and vim.fn.executable("fzf") == 0 and not (picker_opts.fzf_lua or {}).fzf_bin then
+	if
+		fzf_status
+		and fzf_status.available
+		and vim.fn.executable("fzf") == 0
+		and not (picker_opts.fzf_lua or {}).fzf_bin
+	then
 		h.warn("fzf executable not found", { "Install fzf, or configure fzf-lua to use another fzf-compatible binary" })
 	end
 

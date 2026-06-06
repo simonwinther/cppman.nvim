@@ -229,7 +229,8 @@ local function cppman_base_dir()
 		return vim.system(
 			{ "python3", "-c", "import cppman, os; print(os.path.dirname(cppman.__file__))" },
 			{ text = true }
-		):wait()
+		)
+			:wait()
 	end)
 	if ok and res.code == 0 then
 		local base = vim.trim(res.stdout or "")
