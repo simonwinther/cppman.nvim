@@ -1,5 +1,5 @@
 *cppman.txt*
-                             For Neovim >= 0.10.0    Last change: 2026 June 06
+                             For Neovim >= 0.10.0    Last change: 2026 June 10
 
 ==============================================================================
 Table of Contents                                   *cppman-table-of-contents*
