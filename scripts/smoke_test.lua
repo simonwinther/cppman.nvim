@@ -121,8 +121,26 @@ if db_path then
 	assert(#cppreference_items > 0, "cppreference index is empty")
 	assert(#both_items >= #cppreference_items, "combined index should not be smaller than cppreference index")
 
+	local ids = {}
+	for _, item in ipairs(both_items) do
+		assert(type(item.id) == "string" and item.id ~= "", "index item is missing a stable id")
+		assert(not ids[item.id], "combined index contains duplicate item id: " .. item.id)
+		ids[item.id] = true
+	end
+
+	local by_text = {}
+	for _, item in ipairs(both_items) do
+		local existing = by_text[item.text]
+		if existing then
+			assert(existing.id ~= item.id, "same-text entries should keep distinct picker ids: " .. item.text)
+		else
+			by_text[item.text] = item
+		end
+	end
+
 	local vector_matches = index.find_exact_matches("std::vector", "both")
 	assert(#vector_matches >= 1, "expected exact matches for std::vector in combined index")
+	assert(vector_matches[1].id ~= nil and vector_matches[1].id ~= "", "combined exact match is missing stable id")
 	assert(vector_matches[1].source ~= nil, "combined exact match is missing source metadata")
 	assert(vector_matches[1].page ~= nil, "combined exact match is missing page metadata")
 	assert(vector_matches[1].query ~= nil, "combined exact match is missing query metadata")

@@ -40,6 +40,44 @@ end
 -- The double border occupies one cell on each side; keep the bordered float
 -- inside the editor so a full-size window never overflows.
 local BORDER_PADDING = 2
+local VIEWER_PADDING_X = 2
+local VIEWER_PADDING_Y = 1
+local padding_ns = vim.api.nvim_create_namespace("cppman_viewer_padding")
+
+local function render_width()
+	return math.max(1, vim.api.nvim_win_get_width(state.win) - (VIEWER_PADDING_X * 2))
+end
+
+local function pad_page_lines(lines)
+	local padded = {}
+
+	for _ = 1, VIEWER_PADDING_Y do
+		padded[#padded + 1] = ""
+	end
+	for i = 1, #lines do
+		padded[#padded + 1] = lines[i]
+	end
+	for _ = 1, VIEWER_PADDING_Y do
+		padded[#padded + 1] = ""
+	end
+
+	return padded
+end
+
+local function apply_left_padding(buf, line_count)
+	local prefix = string.rep(" ", VIEWER_PADDING_X)
+	if prefix == "" then
+		return
+	end
+
+	vim.api.nvim_buf_clear_namespace(buf, padding_ns, 0, -1)
+	for line = VIEWER_PADDING_Y, line_count - VIEWER_PADDING_Y - 1 do
+		vim.api.nvim_buf_set_extmark(buf, padding_ns, line, 0, {
+			virt_text = { { prefix, "NormalFloat" } },
+			virt_text_pos = "inline",
+		})
+	end
+end
 
 -- Float geometry as (width, height, row, col). When `maximized`, fills the
 -- editor; otherwise uses the configured viewer width/height ratios.
@@ -262,8 +300,7 @@ local function load_page(item, lines, timing, cursor)
 	end
 
 	if not lines then
-		local width = vim.api.nvim_win_get_width(state.win) - 4
-		lines, timing = render().render_page(item.page, item.query, width, item.source)
+		lines, timing = render().render_page(item.page, item.query, render_width(), item.source)
 		if not lines then
 			vim.notify("[cppman] failed to render page for: " .. item.page, vim.log.levels.ERROR)
 			return false
@@ -272,9 +309,12 @@ local function load_page(item, lines, timing, cursor)
 
 	local ui_t0 = util.now_ms()
 	local buf = state.buf
+	local page_label = extract_page_label(item.page, lines)
+	local padded_lines = pad_page_lines(lines)
 	vim.bo[buf].ro = false
 	vim.bo[buf].ma = true
-	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, padded_lines)
+	apply_left_padding(buf, #padded_lines)
 	vim.bo[buf].ro = true
 	vim.bo[buf].ma = false
 	vim.bo[buf].mod = false
@@ -282,7 +322,7 @@ local function load_page(item, lines, timing, cursor)
 	vim.bo[buf].filetype = "cppman"
 	vim.bo[buf].keywordprg = "cppman"
 
-	local target = { 1, 0 }
+	local target = { VIEWER_PADDING_Y + 1, 0 }
 	if cursor and cursor[1] then
 		local line_count = vim.api.nvim_buf_line_count(buf)
 		local row = math.max(1, math.min(cursor[1], line_count))
@@ -292,8 +332,8 @@ local function load_page(item, lines, timing, cursor)
 	_current_page_name = item.page
 	_current_page_query = item.query
 	_current_page_source = item.source
-	_current_page_label = extract_page_label(item.page, lines)
-	_current_sections = sections_mod.build(lines)
+	_current_page_label = page_label
+	_current_sections = sections_mod.build(padded_lines)
 	if timing then
 		local ui_ms = util.now_ms() - ui_t0
 		timing.our_ms = timing.our_ms + ui_ms
@@ -339,8 +379,7 @@ local function try_open_page(item)
 		return false
 	end
 
-	local width = vim.api.nvim_win_get_width(state.win) - 4
-	local lines, timing = render().render_page(item.page, item.query, width, item.source)
+	local lines, timing = render().render_page(item.page, item.query, render_width(), item.source)
 	if not lines then
 		return false
 	end

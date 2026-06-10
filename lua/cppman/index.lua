@@ -43,8 +43,23 @@ local function add_exact_item(map, item)
 	end
 end
 
+local function id_part(value)
+	value = tostring(value or "")
+	return tostring(#value) .. ":" .. value
+end
+
+local function make_item_id(source, page, query, text)
+	return table.concat({
+		id_part(source),
+		id_part(page),
+		id_part(query),
+		id_part(text),
+	}, "|")
+end
+
 local function make_item(text, page, query, source)
 	return {
+		id = make_item_id(source, page, query, text),
 		text = text,
 		text_lower = text:lower(),
 		page = page,
@@ -425,6 +440,7 @@ function M.load(source)
 				if not seen[dedupe_key] then
 					seen[dedupe_key] = true
 					local merged = {
+						id = item.id,
 						text = item.text,
 						text_lower = item.text_lower,
 						page = item.page,
