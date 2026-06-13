@@ -1,5 +1,5 @@
 *cppman.txt*
-                             For Neovim >= 0.10.0    Last change: 2026 June 10
+                             For Neovim >= 0.10.0    Last change: 2026 June 13
 
 ==============================================================================
 Table of Contents                                   *cppman-table-of-contents*
@@ -66,8 +66,8 @@ With lazy.nvim <https://github.com/folke/lazy.nvim>, using `fzf-lua`:
           provider = "fzf-lua",
         },
       },
-      -- Buffer-local maps in C/C++ files only, so they don't show up in
-      -- other filetypes. The require() calls load the plugin on first use.
+      -- Buffer-local maps in C/C++ files only, so they don't show up in other
+      -- filetypes. The require() calls load the plugin on first use.
       init = function()
         vim.api.nvim_create_autocmd("FileType", {
           pattern = { "cpp", "c" },
@@ -75,7 +75,7 @@ With lazy.nvim <https://github.com/folke/lazy.nvim>, using `fzf-lua`:
             vim.keymap.set("n", "<leader>cu", function()
               require("cppman").open_for(vim.fn.expand("<cword>"))
             end, { buffer = args.buf, desc = "[C++] open under cursor" })
-
+    
             vim.keymap.set("n", "<leader>ck", function()
               require("cppman").search()
             end, { buffer = args.buf, desc = "[C++] keyword search" })
