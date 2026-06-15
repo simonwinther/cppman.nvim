@@ -15,6 +15,7 @@ M.defaults = {
 	viewer = {
 		width = 0.8,
 		height = 0.6,
+		border = "double",
 	},
 }
 

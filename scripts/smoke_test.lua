@@ -109,6 +109,10 @@ assert(tostring(bad_err):find("invalid source", 1, true), "expected 'invalid sou
 assert(pcall(cppman.setup, {}), "re-setup failed")
 assert(pcall(cppman.setup, { source = "cppreference.com" }), "re-setup with source override failed")
 
+-- viewer.border is configurable (issue #16) and survives the merge.
+assert(pcall(cppman.setup, { viewer = { border = "rounded" } }), "re-setup with viewer.border override failed")
+assert(config.options.viewer.border == "rounded", "viewer.border override did not take effect")
+
 local sections = require("cppman.sections")
 local sample = { "NAME", "      vector", "", "DESCRIPTION", "      ...", "  1) thing", "", "EXAMPLE" }
 local idx = sections.build(sample)

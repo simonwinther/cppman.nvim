@@ -37,12 +37,46 @@ local function is_valid()
 	return state.win and vim.api.nvim_win_is_valid(state.win) and state.buf and vim.api.nvim_buf_is_valid(state.buf)
 end
 
--- The double border occupies one cell on each side; keep the bordered float
+-- A single-cell border occupies one cell on each side; keep the bordered float
 -- inside the editor so a full-size window never overflows.
 local BORDER_PADDING = 2
 local VIEWER_PADDING_X = 2
 local VIEWER_PADDING_Y = 1
 local padding_ns = vim.api.nvim_create_namespace("cppman_viewer_padding")
+
+-- Border names from issue #16 that aren't native nvim_open_win() values.
+-- Anything not listed (none/single/double/rounded or a custom 8-cell array)
+-- passes straight through; nvim validates the rest.
+local BORDER_ALIASES = {
+	square = "single",
+	heavy = { "┏", "━", "┓", "┃", "┛", "━", "┗", "┃" },
+}
+
+local function resolve_border(border)
+	border = border or "double"
+	return BORDER_ALIASES[border] or border
+end
+
+-- Footer separator glyph, keyed by the resolved border.
+local HLINE = {
+	double = "═",
+	single = "─",
+	rounded = "─",
+	none = " ",
+}
+
+local function footer_sep_char()
+	local border = resolve_border(config().options.viewer.border)
+	if type(border) == "table" then
+		-- Footer sits on the bottom edge; prefer [6], fall back to [2].
+		local cell = border[6] or border[2]
+		if type(cell) == "table" then
+			cell = cell[1] -- nvim allows { char, highlight } cells
+		end
+		return type(cell) == "string" and cell or "═"
+	end
+	return HLINE[border] or "═"
+end
 
 local function render_width()
 	return math.max(1, vim.api.nvim_win_get_width(state.win) - (VIEWER_PADDING_X * 2))
@@ -197,7 +231,7 @@ local function set_footer(page_label, timing_text)
 	local left_label = truncate_footer_text(page_label or "", max_label_width)
 	local left = left_label ~= "" and (" " .. left_label .. " ") or ""
 	local gap_width = math.max(1, win_width - vim.fn.strdisplaywidth(left) - right_width)
-	local gap = string.rep("═", gap_width)
+	local gap = string.rep(footer_sep_char(), gap_width)
 
 	cfg.footer = {
 		{ left, "Title" },
@@ -689,7 +723,7 @@ function M.open(opts)
 		row = row,
 		col = col,
 		style = "minimal",
-		border = "double",
+		border = resolve_border(config().options.viewer.border),
 		title = " [cppman] ",
 		title_pos = "center",
 		zindex = 50,
