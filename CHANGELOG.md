@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.10](https://github.com/simonwinther/cppman.nvim/compare/v0.0.9...v0.0.10) (2026-06-15)
+
+
+### Features
+
+* **viewer:** add configurable border option ([8207636](https://github.com/simonwinther/cppman.nvim/commit/8207636bc78c7a87ac0dccea9ef02bda5d2140b1)), closes [#16](https://github.com/simonwinther/cppman.nvim/issues/16)
+
 ## [0.0.9](https://github.com/simonwinther/cppman.nvim/compare/v0.0.8...v0.0.9) (2026-06-13)
 
 
