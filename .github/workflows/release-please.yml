@@ -10,11 +10,104 @@ permissions:
   issues: write
   pull-requests: write
 
+# Serialize runs so two pushes can't clobber each other's edits to the
+# release PR body.
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
 jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
       - uses: googleapis/release-please-action@v4
+        id: release
         with:
           config-file: .github/release-please-config.json
           manifest-file: .github/release-please-manifest.json
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Turn `Refs: #NN` trailers from feature commits/PRs into `Closes #NN`
+      # inside the release PR body, so merging the release PR auto-closes them.
+      # Gated on the open release PR (label `autorelease: pending`) rather than
+      # the action outputs, so late-arriving refs are picked up on every push.
+      - name: Add issue closers to release PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          pr_number="$(gh pr list --label 'autorelease: pending' --state open \
+            --json number -q '.[0].number // empty')"
+          if [ -z "$pr_number" ]; then
+            echo "No pending release PR; nothing to do."
+            exit 0
+          fi
+
+          last_tag="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+          if [ -n "$last_tag" ]; then
+            range="${last_tag}..HEAD"
+            since_epoch="$(git log -1 --format=%ct "$last_tag")"
+          else
+            range="HEAD"
+            since_epoch=0
+          fi
+
+          ref_re='Refs?:?[[:space:]]+#[0-9]+([[:space:],]+#[0-9]+)*'
+
+          # 1) Refs: trailers in commit messages. Covers merge-commit and rebase
+          #    merges, and squash merges that keep the default commit body.
+          commit_refs="$(
+            git log "$range" --format='%B' \
+              | grep -Eio "$ref_re" \
+              | grep -Eo '#[0-9]+' || true
+          )"
+
+          # 2) Refs: in the bodies of PRs merged since the last release. Covers
+          #    squash merges whose body was edited, or refs put only in the PR
+          #    description. Requires jq (preinstalled on ubuntu-latest).
+          pr_refs="$(
+            gh pr list --state merged --base master --limit 100 \
+              --json number,body,mergedAt \
+              | jq -r --argjson since "$since_epoch" \
+                  '.[] | select((.mergedAt | fromdateiso8601) > $since) | .body' \
+              | grep -Eio "$ref_re" \
+              | grep -Eo '#[0-9]+' || true
+          )"
+
+          issues="$(
+            printf '%s\n%s\n' "$commit_refs" "$pr_refs" \
+              | grep -E '^#[0-9]+$' \
+              | sort -t'#' -k2 -n -u \
+              | sed 's/^/Closes /' || true
+          )"
+          if [ -z "$issues" ]; then
+            echo "No referenced issues found."
+            exit 0
+          fi
+
+          block_start="<!-- release-please-auto-closes:start -->"
+          block_end="<!-- release-please-auto-closes:end -->"
+
+          body="$(gh pr view "$pr_number" --json body -q .body)"
+          cleaned_body="$(
+            awk -v s="$block_start" -v e="$block_end" '
+              $0 == s { skip = 1; next }
+              $0 == e { skip = 0; next }
+              !skip { print }
+            ' <<< "$body"
+          )"
+
+          {
+            printf '%s\n\n' "$cleaned_body"
+            printf '%s\n' "$block_start"
+            printf '%s\n' "$issues"
+            printf '%s\n' "$block_end"
+          } > "$RUNNER_TEMP/release_pr_body.md"
+
+          gh pr edit "$pr_number" --body-file "$RUNNER_TEMP/release_pr_body.md"
+          echo "Patched PR #$pr_number with:"
+          echo "$issues"
