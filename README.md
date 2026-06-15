@@ -160,6 +160,11 @@ require("cppman").setup({
   viewer = {
     width = 0.8,
     height = 0.6,
+
+    -- Border for the docs window. Native nvim borders work
+    -- ("none", "single", "double", "rounded")
+    -- plus "square" (= single) and "heavy".
+    border = "double",
   },
 })
 ```
