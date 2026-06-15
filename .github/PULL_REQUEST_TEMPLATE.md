@@ -5,8 +5,8 @@
 ## Related Issue(s)
 
 <!--
-  If this PR fixes any issues, please link to the issue here.
-  - Fixes #<issue_number>
+  If this PR references any issues, please link to them here.
+  - Refs: #<issue_number>
 -->
 
 ## Screenshots/Video
