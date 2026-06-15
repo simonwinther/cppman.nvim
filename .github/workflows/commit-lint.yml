@@ -1,0 +1,45 @@
+name: commit-lint
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  no-closing-keywords:
+    # Skip release-please's own PR: its changelog legitimately renders
+    # "closes #NN", and the managed auto-closes block adds the real closers.
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reject issue-closing keywords (use Refs:)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          close_re='\b(close[sd]?|fix(e[sd])?|resolve[sd]?)\b:?[[:space:]]*#[0-9]+'
+          bad=0
+
+          for sha in $(git rev-list "$BASE_SHA..$HEAD_SHA"); do
+            msg="$(git log -1 --format='%B' "$sha")"
+            if printf '%s\n' "$msg" | grep -Eiq "$close_re"; then
+              echo "::error::$(git log -1 --format='%h %s' "$sha") uses an issue-closing keyword; use 'Refs: #NN' instead."
+              printf '%s\n' "$msg" | grep -Ein "$close_re" || true
+              bad=1
+            fi
+          done
+
+          if [ "$bad" -ne 0 ]; then
+            echo "Closing keywords (close/closes/closed, fix/fixes/fixed, resolve/resolves/resolved) auto-close issues on merge."
+            echo "This repo uses 'Refs: #NN'; the release workflow converts them to closers at release time."
+            exit 1
+          fi
+
+          echo "OK: no closing keywords in commit messages."

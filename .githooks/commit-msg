@@ -1,0 +1,29 @@
+#!/usr/bin/env sh
+# Reject GitHub issue-closing keywords in commit messages.
+#
+# This repo's convention is `Refs: #NN` (see CONTRIBUTING.md). The release
+# workflow converts those Refs into closers inside the release PR, so issues
+# close when a release ships -- not on every push to the default branch.
+#
+# Closing keywords (close/closes/closed, fix/fixes/fixed, resolve/resolves/
+# resolved) followed by #NN auto-close the issue the moment the commit lands
+# on master, which is exactly what we want to avoid.
+
+msg_file="$1"
+
+# Strip comment lines (e.g. the diff in `git commit -v`) before scanning.
+content="$(grep -v '^#' "$msg_file")"
+
+close_re='\b(close[sd]?|fix(e[sd])?|resolve[sd]?)\b:?[[:space:]]*#[0-9]+'
+
+if printf '%s\n' "$content" | grep -Eiq "$close_re"; then
+  echo "commit-msg: issue-closing keyword detected:" >&2
+  printf '%s\n' "$content" | grep -Ein "$close_re" >&2
+  echo >&2
+  echo "Use 'Refs: #NN' instead of close/closes/fix/fixes/resolve/resolves." >&2
+  echo "Closing keywords auto-close the issue on push to the default branch;" >&2
+  echo "the release workflow turns 'Refs:' into closers at release time." >&2
+  exit 1
+fi
+
+exit 0

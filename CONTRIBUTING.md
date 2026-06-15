@@ -49,6 +49,15 @@ merge that release PR, GitHub closes the referenced issues.
 If you put the `Refs:` line only in a pull request description, that works too —
 the workflow also scans the bodies of PRs merged since the last release.
 
+A `commit-msg` hook rejects closing keywords locally so a stray `Closes #NN`
+can't reach `master`. Enable it once per clone:
+
+```
+git config core.hooksPath .githooks
+```
+
+The `commit-lint` workflow enforces the same rule on pull requests.
+
 ## Merge method
 
 Merge or rebase feature PRs so commit bodies (and their `Refs:` trailers) are
