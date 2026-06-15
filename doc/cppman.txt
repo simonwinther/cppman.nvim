@@ -1,5 +1,5 @@
 *cppman.txt*
-                             For Neovim >= 0.10.0    Last change: 2026 June 14
+                             For Neovim >= 0.10.0    Last change: 2026 June 15
 
 ==============================================================================
 Table of Contents                                   *cppman-table-of-contents*
@@ -178,6 +178,11 @@ Defaults:
       viewer = {
         width = 0.8,
         height = 0.6,
+    
+        -- Border for the docs window. Native nvim borders work
+        -- ("none", "single", "double", "rounded")
+        -- plus "square" (= single) and "heavy".
+        border = "double",
       },
     })
 <
