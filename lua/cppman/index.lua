@@ -233,6 +233,55 @@ local function validate_db(db_path, source)
 	return (tonumber(rows[1]) or 0) > 0
 end
 
+-- A bare `python3` on PATH is frequently the wrong interpreter: package
+-- managers commonly install cppman into an isolated virtualenv (e.g. Homebrew's
+-- libexec venv) whose Python is not the one on PATH, so `import cppman` fails
+-- there. Prefer the interpreter named in the cppman executable's shebang, which
+-- always points at the environment that actually has cppman installed.
+local function shebang_interpreter()
+	local exe = vim.fn.exepath("cppman")
+	if exe == "" then
+		return nil
+	end
+	local ok, lines = pcall(vim.fn.readfile, vim.fn.resolve(exe), "", 1)
+	if not ok or type(lines) ~= "table" or not lines[1] then
+		return nil
+	end
+	local shebang = lines[1]:match("^#!%s*(.+)$")
+	if not shebang then
+		return nil
+	end
+	-- Handle both "#!/path/to/python" and "#!/usr/bin/env python3".
+	local first, second = shebang:match("^(%S+)%s*(%S*)")
+	local interp = first
+	if first and vim.fn.fnamemodify(first, ":t") == "env" and second ~= "" then
+		interp = second
+	end
+	if not interp or interp == "" then
+		return nil
+	end
+	-- Only trust an interpreter that actually looks like Python.
+	if not vim.fn.fnamemodify(interp, ":t"):lower():find("python", 1, true) then
+		return nil
+	end
+	return interp
+end
+
+local function python_candidates()
+	local seen = {}
+	local candidates = {}
+	local function add(interp)
+		if interp and interp ~= "" and not seen[interp] then
+			seen[interp] = true
+			candidates[#candidates + 1] = interp
+		end
+	end
+	add(shebang_interpreter())
+	add("python3")
+	add("python")
+	return candidates
+end
+
 local _cppman_base_dir = nil
 local _cppman_base_dir_resolved = false
 local function cppman_base_dir()
@@ -240,17 +289,20 @@ local function cppman_base_dir()
 		return _cppman_base_dir
 	end
 	_cppman_base_dir_resolved = true
-	local ok, res = pcall(function()
-		return vim.system(
-			{ "python3", "-c", "import cppman, os; print(os.path.dirname(cppman.__file__))" },
-			{ text = true }
-		)
-			:wait()
-	end)
-	if ok and res.code == 0 then
-		local base = vim.trim(res.stdout or "")
-		if base ~= "" then
-			_cppman_base_dir = base
+	for _, python in ipairs(python_candidates()) do
+		local ok, res = pcall(function()
+			return vim.system(
+				{ python, "-c", "import cppman, os; print(os.path.dirname(cppman.__file__))" },
+				{ text = true }
+			)
+				:wait()
+		end)
+		if ok and res.code == 0 then
+			local base = vim.trim(res.stdout or "")
+			if base ~= "" then
+				_cppman_base_dir = base
+				return _cppman_base_dir
+			end
 		end
 	end
 	return _cppman_base_dir
@@ -282,10 +334,51 @@ function M.cppman_paths()
 	return _cppman_paths
 end
 
+-- Belt-and-suspenders for Homebrew installs where interpreter introspection
+-- fails (e.g. `cppman` shadowed by an alias): the bundled index.db lives inside
+-- the formula's libexec virtualenv, which the Linux fallback paths never cover.
+local function find_homebrew_db()
+	local seen = {}
+	local prefixes = {}
+	local function add_prefix(p)
+		if p and p ~= "" and not seen[p] then
+			seen[p] = true
+			prefixes[#prefixes + 1] = p
+		end
+	end
+	add_prefix(vim.env.HOMEBREW_PREFIX)
+	local exe = vim.fn.exepath("cppman")
+	if exe ~= "" then
+		-- <prefix>/bin/cppman -> <prefix>
+		add_prefix(vim.fn.fnamemodify(exe, ":h:h"))
+	end
+	add_prefix("/opt/homebrew")
+	add_prefix("/usr/local")
+
+	for _, prefix in ipairs(prefixes) do
+		local patterns = {
+			prefix .. "/opt/cppman/libexec/lib/python*/site-packages/cppman/lib/index.db",
+			prefix .. "/Cellar/cppman/*/libexec/lib/python*/site-packages/cppman/lib/index.db",
+		}
+		for _, pattern in ipairs(patterns) do
+			for _, path in ipairs(vim.fn.glob(pattern, true, true)) do
+				if vim.fn.filereadable(path) == 1 then
+					return path
+				end
+			end
+		end
+	end
+	return nil
+end
+
 local function find_packaged_db()
 	local paths = M.cppman_paths()
 	if paths.db then
 		return paths.db
+	end
+	local homebrew = find_homebrew_db()
+	if homebrew then
+		return homebrew
 	end
 	local fallbacks = {
 		"/usr/lib/cppman/lib/index.db",
