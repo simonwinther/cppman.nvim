@@ -411,7 +411,10 @@ function M.resolve_db(source)
 		vim.notify("[cppman] configured index.db_path not readable: " .. opts.db_path, vim.log.levels.WARN)
 	end
 
-	local local_db = vim.fn.expand("~/.cache/cppman/index.db")
+	-- cppman writes its rebuilt index under XDG_CACHE_HOME, so honor it instead
+	-- of hardcoding ~/.cache (matches how render.lua resolves the cache dir).
+	local cache_home = vim.env.XDG_CACHE_HOME or (vim.fn.expand("~") .. "/.cache")
+	local local_db = cache_home .. "/cppman/index.db"
 	if vim.fn.filereadable(local_db) == 1 then
 		if validate_db(local_db, source) then
 			_db_path = local_db
