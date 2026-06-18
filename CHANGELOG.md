@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.11](https://github.com/simonwinther/cppman.nvim/compare/v0.0.10...v0.0.11) (2026-06-18)
+
+
+### Bug Fixes
+
+* **index:** locate cppman in Homebrew virtualenv installs ([a7f5f3f](https://github.com/simonwinther/cppman.nvim/commit/a7f5f3fff71297bac3c74f6cc44ff45b7b72873a))
+
 ## [0.0.10](https://github.com/simonwinther/cppman.nvim/compare/v0.0.9...v0.0.10) (2026-06-15)
 
 
