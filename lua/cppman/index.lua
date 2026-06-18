@@ -233,6 +233,53 @@ local function validate_db(db_path, source)
 	return (tonumber(rows[1]) or 0) > 0
 end
 
+-- Homebrew (and a few other installers) drop cppman in its own venv, so the
+-- `python3` on your PATH usually can't `import cppman`. The cppman script's
+-- shebang points at the Python that can, so try that one first.
+local function shebang_interpreter()
+	local exe = vim.fn.exepath("cppman")
+	if exe == "" then
+		return nil
+	end
+	local ok, lines = pcall(vim.fn.readfile, vim.fn.resolve(exe), "", 1)
+	if not ok or type(lines) ~= "table" or not lines[1] then
+		return nil
+	end
+	local shebang = lines[1]:match("^#!%s*(.+)$")
+	if not shebang then
+		return nil
+	end
+	-- Handle both "#!/path/to/python" and "#!/usr/bin/env python3".
+	local first, second = shebang:match("^(%S+)%s*(%S*)")
+	local interp = first
+	if first and vim.fn.fnamemodify(first, ":t") == "env" and second ~= "" then
+		interp = second
+	end
+	if not interp or interp == "" then
+		return nil
+	end
+	-- Make sure it's actually a python before we trust it.
+	if not vim.fn.fnamemodify(interp, ":t"):lower():find("python", 1, true) then
+		return nil
+	end
+	return interp
+end
+
+local function python_candidates()
+	local seen = {}
+	local candidates = {}
+	local function add(interp)
+		if interp and interp ~= "" and not seen[interp] then
+			seen[interp] = true
+			candidates[#candidates + 1] = interp
+		end
+	end
+	add(shebang_interpreter())
+	add("python3")
+	add("python")
+	return candidates
+end
+
 local _cppman_base_dir = nil
 local _cppman_base_dir_resolved = false
 local function cppman_base_dir()
@@ -240,17 +287,20 @@ local function cppman_base_dir()
 		return _cppman_base_dir
 	end
 	_cppman_base_dir_resolved = true
-	local ok, res = pcall(function()
-		return vim.system(
-			{ "python3", "-c", "import cppman, os; print(os.path.dirname(cppman.__file__))" },
-			{ text = true }
-		)
-			:wait()
-	end)
-	if ok and res.code == 0 then
-		local base = vim.trim(res.stdout or "")
-		if base ~= "" then
-			_cppman_base_dir = base
+	for _, python in ipairs(python_candidates()) do
+		local ok, res = pcall(function()
+			return vim.system(
+				{ python, "-c", "import cppman, os; print(os.path.dirname(cppman.__file__))" },
+				{ text = true }
+			)
+				:wait()
+		end)
+		if ok and res.code == 0 then
+			local base = vim.trim(res.stdout or "")
+			if base ~= "" then
+				_cppman_base_dir = base
+				return _cppman_base_dir
+			end
 		end
 	end
 	return _cppman_base_dir
@@ -282,10 +332,51 @@ function M.cppman_paths()
 	return _cppman_paths
 end
 
+-- Backup for Homebrew when the python lookup above comes up empty (e.g. cppman
+-- is an alias). The db ships inside the brew venv, which the Linux paths below
+-- don't cover, so go find it by hand.
+local function find_homebrew_db()
+	local seen = {}
+	local prefixes = {}
+	local function add_prefix(p)
+		if p and p ~= "" and not seen[p] then
+			seen[p] = true
+			prefixes[#prefixes + 1] = p
+		end
+	end
+	add_prefix(vim.env.HOMEBREW_PREFIX)
+	local exe = vim.fn.exepath("cppman")
+	if exe ~= "" then
+		-- <prefix>/bin/cppman -> <prefix>
+		add_prefix(vim.fn.fnamemodify(exe, ":h:h"))
+	end
+	add_prefix("/opt/homebrew")
+	add_prefix("/usr/local")
+
+	for _, prefix in ipairs(prefixes) do
+		local patterns = {
+			prefix .. "/opt/cppman/libexec/lib/python*/site-packages/cppman/lib/index.db",
+			prefix .. "/Cellar/cppman/*/libexec/lib/python*/site-packages/cppman/lib/index.db",
+		}
+		for _, pattern in ipairs(patterns) do
+			for _, path in ipairs(vim.fn.glob(pattern, true, true)) do
+				if vim.fn.filereadable(path) == 1 then
+					return path
+				end
+			end
+		end
+	end
+	return nil
+end
+
 local function find_packaged_db()
 	local paths = M.cppman_paths()
 	if paths.db then
 		return paths.db
+	end
+	local homebrew = find_homebrew_db()
+	if homebrew then
+		return homebrew
 	end
 	local fallbacks = {
 		"/usr/lib/cppman/lib/index.db",
