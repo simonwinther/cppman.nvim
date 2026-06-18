@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.12](https://github.com/simonwinther/cppman.nvim/compare/v0.0.11...v0.0.12) (2026-06-18)
+
+
+### Bug Fixes
+
+* **index:** honor XDG_CACHE_HOME when locating the rebuilt index.db ([2ffeb1e](https://github.com/simonwinther/cppman.nvim/commit/2ffeb1ec84a43f1cf9d002ebc24675d34e103d43))
+
 ## [0.0.11](https://github.com/simonwinther/cppman.nvim/compare/v0.0.10...v0.0.11) (2026-06-18)
 
 
