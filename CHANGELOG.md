@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.13](https://github.com/simonwinther/cppman.nvim/compare/v0.0.12...v0.0.13) (2026-06-24)
+
+
+### Bug Fixes
+
+* **viewer:** center float within usable editor area ([d0a1845](https://github.com/simonwinther/cppman.nvim/commit/d0a1845f253c9441657064c66ebd3a9ab8bee686))
+
 ## [0.0.12](https://github.com/simonwinther/cppman.nvim/compare/v0.0.11...v0.0.12) (2026-06-18)
 
 
