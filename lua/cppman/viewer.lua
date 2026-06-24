@@ -113,16 +113,50 @@ local function apply_left_padding(buf, line_count)
 	end
 end
 
+-- Rows nvim keeps at the edges of the editor grid: the tabline at the top, the
+-- statusline and command line at the bottom. A `relative="editor"` float is
+-- placed against the whole grid, so these rows are excluded before centering it
+-- vertically; counting them would leave the float sitting too low. Nothing is
+-- pinned left or right, so the horizontal axis needs no equivalent.
+local function editor_chrome()
+	local top = 0
+	if vim.o.showtabline == 2 or (vim.o.showtabline == 1 and #vim.api.nvim_list_tabpages() > 1) then
+		top = 1
+	end
+
+	local statusline = 0
+	local ls = vim.o.laststatus
+	if ls == 2 or ls == 3 then
+		statusline = 1
+	elseif ls == 1 and #vim.api.nvim_tabpage_list_wins(0) > 1 then
+		statusline = 1
+	end
+
+	return top, statusline + vim.o.cmdheight
+end
+
 -- Float geometry as (width, height, row, col). When `maximized`, fills the
--- editor; otherwise uses the configured viewer width/height ratios.
+-- usable editor area; otherwise uses the configured viewer width/height ratios.
 local function compute_geometry(maximized)
 	local ui = vim.api.nvim_list_uis()[1]
 	local w = maximized and 1.0 or (config().options.viewer.width or 0.8)
 	local h = maximized and 1.0 or (config().options.viewer.height or 0.6)
+
+	local top_chrome, bottom_chrome = editor_chrome()
+	local usable_h = ui.height - top_chrome - bottom_chrome
+
+	-- The height ratio applies to the usable area rather than the full screen, so
+	-- a value like 0.9 leaves about a tenth of the usable rows as margin, split
+	-- above and below the float.
 	local win_w = math.min(math.floor(ui.width * w), ui.width - BORDER_PADDING)
-	local win_h = math.min(math.floor(ui.height * h), ui.height - BORDER_PADDING)
-	local row = math.floor((ui.height - win_h) / 2)
+	local win_h = math.min(math.floor(usable_h * h), usable_h - BORDER_PADDING)
+
 	local col = math.floor((ui.width - win_w) / 2)
+	-- `row` and `col` are the top-left of the bordered box (the border counts as
+	-- part of the window), so center the full footprint (win_h plus the two
+	-- border rows) within the usable area.
+	local row = top_chrome + math.floor((usable_h - win_h - BORDER_PADDING) / 2)
+
 	return win_w, win_h, row, col
 end
 
