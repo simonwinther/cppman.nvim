@@ -35,6 +35,7 @@ for _, mod in ipairs({
 	"cppman.pickers.common",
 	"cppman.pickers.snacks",
 	"cppman.pickers.fzf_lua",
+	"cppman.pickers.telescope",
 	"cppman.health",
 }) do
 	local rok, rerr = pcall(require, mod)
@@ -44,6 +45,7 @@ end
 local picker = require("cppman.picker")
 assert(picker.normalize_provider("fzf_lua") == "fzf-lua", "fzf_lua provider alias should normalize")
 assert(picker.normalize_provider("snacks.nvim") == "snacks", "snacks.nvim provider alias should normalize")
+assert(picker.normalize_provider("telescope.nvim") == "telescope", "telescope.nvim provider alias should normalize")
 
 local bad_provider = picker.provider_status("unknown")
 assert(not bad_provider.available, "unknown picker provider should not be available")

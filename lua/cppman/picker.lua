@@ -2,7 +2,7 @@ local M = {}
 
 local util = require("cppman.util")
 
-local AUTO_ORDER = { "snacks", "fzf-lua" }
+local AUTO_ORDER = { "snacks", "fzf-lua", "telescope" }
 local PROVIDERS = {
 	snacks = {
 		label = "snacks.nvim",
@@ -11,6 +11,10 @@ local PROVIDERS = {
 	["fzf-lua"] = {
 		label = "fzf-lua",
 		module = "cppman.pickers.fzf_lua",
+	},
+	telescope = {
+		label = "telescope.nvim",
+		module = "cppman.pickers.telescope",
 	},
 }
 
@@ -40,6 +44,9 @@ function M.normalize_provider(provider)
 	if provider == "snacks.nvim" then
 		return "snacks"
 	end
+	if provider == "telescope.nvim" then
+		return "telescope"
+	end
 	return provider
 end
 
@@ -51,7 +58,7 @@ function M.provider_status(provider)
 			name = provider,
 			label = tostring(provider),
 			available = false,
-			error = "expected one of: auto, snacks, fzf-lua",
+			error = "expected one of: auto, snacks, fzf-lua, telescope",
 		}
 	end
 
@@ -101,12 +108,15 @@ function M.resolve_provider(provider)
 				return candidate
 			end
 		end
-		return nil, "[cppman] no picker backend found (install folke/snacks.nvim or ibhagwan/fzf-lua)"
+		return nil,
+			"[cppman] no picker backend found (install folke/snacks.nvim, ibhagwan/fzf-lua, or nvim-telescope/telescope.nvim)"
 	end
 
 	if not PROVIDERS[provider] then
 		return nil,
-			"[cppman] invalid picker provider: " .. tostring(provider) .. " (expected one of: auto, snacks, fzf-lua)"
+			"[cppman] invalid picker provider: "
+				.. tostring(provider)
+				.. " (expected one of: auto, snacks, fzf-lua, telescope)"
 	end
 
 	local status = M.provider_status(provider)

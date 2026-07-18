@@ -25,6 +25,7 @@ not need to call the `cppman` command for every query.
 
   * [ibhagwan/fzf-lua](https://github.com/ibhagwan/fzf-lua) and the `fzf` binary
   * [folke/snacks.nvim](https://github.com/folke/snacks.nvim)
+  * [nvim-telescope/telescope.nvim](https://github.com/nvim-telescope/telescope.nvim)
 
 Install the external tools however you normally do:
 
@@ -88,8 +89,26 @@ return {
 }
 ```
 
+Or, with `telescope.nvim`:
+
+```lua
+return {
+  "simonwinther/cppman.nvim",
+  version = "*",
+  cmd = "CPPMan",
+  dependencies = {
+    "nvim-telescope/telescope.nvim",
+  },
+  opts = {
+    picker = {
+      provider = "telescope",
+    },
+  },
+}
+```
+
 You can also leave the provider as `"auto"`. It tries `snacks.nvim` first, then
-`fzf-lua`.
+`fzf-lua`, then `telescope.nvim`.
 
 ## Usage
 
@@ -146,7 +165,7 @@ require("cppman").setup({
   },
 
   picker = {
-    -- "auto", "fzf-lua", or "snacks"
+    -- "auto", "fzf-lua", "snacks", or "telescope"
     provider = "auto",
 
     width = 0.4,
@@ -155,6 +174,7 @@ require("cppman").setup({
     -- Passed through to the picker backend.
     snacks = {},
     fzf_lua = {},
+    telescope = {},
   },
 
   viewer = {
