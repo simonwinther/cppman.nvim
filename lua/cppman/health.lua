@@ -34,7 +34,10 @@ function M.check()
 		if active then
 			h.ok("picker provider resolved to " .. statuses[active].label)
 		else
-			h.error("no picker backend found", { "Install folke/snacks.nvim or ibhagwan/fzf-lua" })
+			h.error(
+				"no picker backend found",
+				{ "Install folke/snacks.nvim, ibhagwan/fzf-lua, or nvim-telescope/telescope.nvim" }
+			)
 		end
 		for _, status in pairs(statuses) do
 			if status.available then

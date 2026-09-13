@@ -11,6 +11,7 @@ M.defaults = {
 		height = 0.4,
 		snacks = {},
 		fzf_lua = {},
+		telescope = {},
 	},
 	viewer = {
 		width = 0.8,
