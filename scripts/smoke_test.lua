@@ -1,6 +1,8 @@
 vim.opt.runtimepath:append(vim.fn.getcwd())
 vim.opt.runtimepath:append(vim.fn.getcwd() .. "/.tests/deps/snacks.nvim")
 vim.opt.runtimepath:append(vim.fn.getcwd() .. "/.tests/deps/fzf-lua")
+vim.opt.runtimepath:append(vim.fn.getcwd() .. "/.tests/deps/plenary.nvim")
+vim.opt.runtimepath:append(vim.fn.getcwd() .. "/.tests/deps/telescope.nvim")
 
 local ok, cppman = pcall(require, "cppman")
 assert(ok, "failed to require cppman: " .. tostring(cppman))

@@ -26,6 +26,7 @@ not need to call the `cppman` command for every query.
   * [ibhagwan/fzf-lua](https://github.com/ibhagwan/fzf-lua) and the `fzf` binary
   * [folke/snacks.nvim](https://github.com/folke/snacks.nvim)
   * [nvim-telescope/telescope.nvim](https://github.com/nvim-telescope/telescope.nvim)
+    with [nvim-lua/plenary.nvim](https://github.com/nvim-lua/plenary.nvim)
 
 Install the external tools however you normally do:
 
@@ -91,12 +92,15 @@ return {
 
 Or, with `telescope.nvim`:
 
+Current Telescope requires Neovim 0.11.7 or newer.
+
 ```lua
 return {
   "simonwinther/cppman.nvim",
   version = "*",
   cmd = "CPPMan",
   dependencies = {
+    "nvim-lua/plenary.nvim",
     "nvim-telescope/telescope.nvim",
   },
   opts = {
@@ -106,6 +110,9 @@ return {
   },
 }
 ```
+
+For Neovim versions below 0.11.7, replace the Telescope dependency with
+`{ "nvim-telescope/telescope.nvim", tag = "0.1.8" }`.
 
 You can also leave the provider as `"auto"`. It tries `snacks.nvim` first, then
 `fzf-lua`, then `telescope.nvim`.

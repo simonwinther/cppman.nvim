@@ -13,7 +13,11 @@ jobs:
       fail-fast: false
       matrix:
         neovim: [stable, nightly]
-        picker: [snacks, fzf-lua]
+        picker: [snacks, fzf-lua, telescope]
+        include:
+          - neovim: v0.10.4
+            picker: telescope
+            telescope_ref: 0.1.8
 
     steps:
       - name: Checkout code
@@ -30,17 +34,26 @@ jobs:
           attempt_delay: 15000
 
       - name: Install picker dependency
+        env:
+          TELESCOPE_REF: ${{ matrix.telescope_ref || 'master' }}
         run: |
           mkdir -p .tests/deps
           if [ "${{ matrix.picker }}" = "snacks" ]; then
             git clone --depth=1 https://github.com/folke/snacks.nvim .tests/deps/snacks.nvim
-          else
+          elif [ "${{ matrix.picker }}" = "fzf-lua" ]; then
             sudo apt-get update
             sudo apt-get install -y fzf
             git clone --depth=1 https://github.com/ibhagwan/fzf-lua .tests/deps/fzf-lua
+          else
+            git clone --depth=1 https://github.com/nvim-lua/plenary.nvim .tests/deps/plenary.nvim
+            git clone --depth=1 --branch "$TELESCOPE_REF" https://github.com/nvim-telescope/telescope.nvim .tests/deps/telescope.nvim
           fi
 
       - name: Run smoke test
         run: nvim --headless -u NONE -l scripts/smoke_test.lua
         env:
           CPPMAN_PICKER_PROVIDER: ${{ matrix.picker }}
+
+      - name: Test Telescope picker
+        if: matrix.picker == 'telescope'
+        run: nvim --headless -u NONE -l scripts/telescope_test.lua

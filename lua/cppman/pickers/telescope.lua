@@ -8,6 +8,10 @@ function M.is_available()
 	if not ok then
 		return false, "telescope.nvim not found"
 	end
+	local ok_plenary = pcall(require, "plenary")
+	if not ok_plenary then
+		return false, "plenary.nvim not found (required by telescope.nvim)"
+	end
 	local ok_pickers = pcall(require, "telescope.pickers")
 	if not ok_pickers then
 		return false, "telescope.nvim found but pickers module unavailable"
@@ -58,9 +62,9 @@ function M.open(opts)
 	local on_back = opts.on_back
 	local pattern = opts.search or ""
 
-	local ok, _ = pcall(require, "telescope")
-	if not ok then
-		vim.notify("[cppman] telescope.nvim is required for picker.provider = 'telescope'", vim.log.levels.ERROR)
+	local available, err = M.is_available()
+	if not available then
+		vim.notify("[cppman] picker provider telescope.nvim unavailable: " .. err, vim.log.levels.ERROR)
 		return
 	end
 
@@ -68,6 +72,7 @@ function M.open(opts)
 	local finders = require("telescope.finders")
 	local conf = require("telescope.config").values
 	local actions = require("telescope.actions")
+	local action_set = require("telescope.actions.set")
 	local action_state = require("telescope.actions.state")
 
 	local config = require("cppman.config")
@@ -99,8 +104,8 @@ function M.open(opts)
 			}),
 			sorter = conf.generic_sorter(telescope_opts),
 			attach_mappings = function(prompt_bufnr, map)
-				actions.select_default:replace(function()
-					local entry = action_state.get_selected_entry()
+				action_set.select:replace(function()
+					local entry = action_state.get_current_picker(prompt_bufnr):get_selection()
 					-- Capture the live prompt input before closing so the viewer
 					-- can record it in history, matching snacks/fzf-lua behavior.
 					local used_pattern = action_state.get_current_line()
