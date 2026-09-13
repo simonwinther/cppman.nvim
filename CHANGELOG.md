@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.0.14](https://github.com/simonwinther/cppman.nvim/compare/v0.0.13...v0.0.14) (2026-09-13)
+
+
+### Features
+
+* **picker:** add support for telescope.nvim ([040a6c6](https://github.com/simonwinther/cppman.nvim/commit/040a6c66d1ebe070873ae3c9a36c92eae01b60ac))
+* **picker:** add Telescope support ([ced9854](https://github.com/simonwinther/cppman.nvim/commit/ced98545e256bf80dd0863c096764670dcde259b)), closes [#21](https://github.com/simonwinther/cppman.nvim/issues/21)
+
+
+### Bug Fixes
+
+* **picker:** complete Telescope integration ([e2bf66b](https://github.com/simonwinther/cppman.nvim/commit/e2bf66baee7b8ef885363553ad1f0dfa5ce8680f)), closes [#21](https://github.com/simonwinther/cppman.nvim/issues/21)
+
 ## [0.0.13](https://github.com/simonwinther/cppman.nvim/compare/v0.0.12...v0.0.13) (2026-06-24)
 
 
